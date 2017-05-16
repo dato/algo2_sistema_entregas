@@ -1,25 +1,25 @@
-# Copyright 2016 Google Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#!/usr/bin/python2.7
+# -*- coding: utf8 -*-
 
+import os
 import webapp2
+import jinja2
 
+templates = jinja2.Environment(
+    loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates')),
+    extensions=['jinja2.ext.autoescape'],
+    autoescape=True,
+)
 
 class MainPage(webapp2.RequestHandler):
-    def get(self):
-        self.response.headers['Content-Type'] = 'text/plain'
-        self.response.write('Hello, World!')
+    def render(self, name, *args):
+        template = templates.get_template(name)
+        self.response.write(template.render(*args))
 
+    def get(self):
+        self.render('index.html', {
+            'title': u'Algoritmos y Programación 1 - Entrega de TPs',
+        })
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
