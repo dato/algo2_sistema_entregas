@@ -33,7 +33,7 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
       <div id="files">
         <input type="file" id="file0" name="file0">
       </div>
-      <button type="button" class="btn btn-default btn-xs btn-block" id="add_file" aria-label="Agregar integrante">
+      <button type="button" class="btn btn-default btn-xs btn-block" id="add_file" aria-label="Agregar archivo">
         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
       </button>
       <p class="help-block">
@@ -42,6 +42,13 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
           <li><b>Informe:</b> <code>.pdf</code>, <code>.txt</code>
           <li><b>Código:</b> <code>.zip</code>, <code>.py</code>
         </ul>
+    </div>
+  </div>
+  <div class="form-group" id="fg_body">
+    <label for="body" class="col-xs-2 control-label">Mensaje (opcional):</label>
+    <div class="col-xs-4">
+      <textarea class="form-control" name="body" id="body"></textarea>
+      <span id="helpBlock" class="help-block">Cualquier aclaración de utilidad para el corrector</span>
     </div>
   </div>
   <div class="form-group">
