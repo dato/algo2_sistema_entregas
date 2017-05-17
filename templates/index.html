@@ -8,24 +8,34 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
 <form class="form-horizontal" role="form" method="post">
   {% if alert %}<div class="alert alert-danger">{{ alert }}</div>{% endif %}
 
-  <div class="form-group">
+  <div class="form-group" id="fg_tp">
     <label for="tp" class="col-xs-2 control-label">Entrega:</label>
     <div class="col-xs-4">
-      <input type="text" class="form-control" name="tp" id="tp" value="">
+      <input type="text" class="form-control upper" name="tp" id="tp" value="">
       <span id="helpBlock" class="help-block">Ejemplos: TP1, TP2, EJ1, etc</span>
     </div>
   </div>
-  <div class="form-group">
-    <label for="tp" class="col-xs-2 control-label">Integrantes:</label>
+  <div class="form-group" id="fg_integrantes">
+    <label for="padron0" class="col-xs-2 control-label">Integrantes:</label>
     <div class="col-xs-4">
-      <input type="text" class="form-control" name="padron1" id="padron1" value="" placeholder="Padrón">
+      <div id="padrones">
+        <input type="text" class="form-control" name="padron0" id="padron0" value="" placeholder="Padrón">
+      </div>
+      <button type="button" class="btn btn-default btn-xs btn-block" id="add_padron" aria-label="Agregar integrante">
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+      </button>
       <span id="helpBlock" class="help-block">Número de padrón o legajo</span>
     </div>
   </div>
-  <div class="form-group">
-    <label for="tp" class="col-xs-2 control-label">Adjuntos:</label>
+  <div class="form-group" id="fg_adjuntos">
+    <label for="file0" class="col-xs-2 control-label">Adjuntos:</label>
     <div class="col-xs-4">
-      <input type="file" id="file">
+      <div id="files">
+        <input type="file" id="file0" name="file0">
+      </div>
+      <button type="button" class="btn btn-default btn-xs btn-block" id="add_file" aria-label="Agregar integrante">
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+      </button>
       <p class="help-block">
         Formatos aceptados:
         <ul>
@@ -37,8 +47,77 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
   <div class="form-group">
     <div class="col-xs-2"></div>
     <div class="col-xs-4">
-      <button disabled type="submit" class="btn btn-primary btn-lg">Enviar entrega</button>
+      <button disabled type="submit" id="submit" class="btn btn-primary btn-lg">Enviar entrega</button>
     </div>
   </div>
 </form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  $('#tp').on('input', validate);
+  $(document).on('input', '#padrones input', validate);
+  $('#add_padron').on('click', addPadron);
+  $('#add_file').on('click', addFile);
+});
+
+function addPadron() {
+  clone('padron', '#padrones');
+}
+
+function addFile() {
+  clone('file', '#files');
+}
+
+function clone(prefix, container) {
+  var id = prefix + $(container).children().length;
+  var newInput = $(container).children().last().clone();
+  newInput.val('');
+  newInput.attr('id', id);
+  newInput.attr('name', id);
+  newInput.appendTo($(container))
+}
+
+function validate() {
+  var tp = validateAlNum($('#tp'), $('fg_tp'));
+  var padrones = validatePadrones();
+  var valid = !!tp && !!padrones;
+  $('#submit').prop('disabled', !valid);
+}
+
+function validatePadrones() {
+  var padrones = []
+  var valid = true;
+  $('#padrones').children().each(function(i) {
+    var el = $(this);
+    if (!el.val()) {
+      return;
+    }
+    var padron = validateAlNum(el);
+    if (padron) {
+      padrones.push(padron);
+    } else {
+      valid = false;
+    }
+  });
+  valid = valid && padrones.length > 0;
+  showValidation($('fg_integrantes'), valid);
+  return valid ? padrones : false;
+}
+
+function validateAlNum(el, formGoup) {
+  if (el.length === 0) {
+    return false;
+  }
+  var value = el.val().trim().toUpperCase();
+  var valid = /^[\d\w]+$/.test(value);
+  if (formGoup) {
+    showValidation(formGoup, valid);
+  }
+  return valid ? value : false;
+}
+
+function showValidation(el, valid) {
+  el.toggleClass('has-error', !valid);
+}
+</script>
 {% endblock %}
