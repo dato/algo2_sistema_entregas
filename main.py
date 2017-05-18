@@ -47,7 +47,6 @@ class MainPage(webapp2.RequestHandler):
             tp = self.request.POST.get('tp').upper()
             padrones = self.get_padrones()
             files = self.get_files()
-            print([(f['filename'], type(f['content'])) for f in files])
             body = self.request.POST.get('body')
 
             docentes = set(alumnos[p].get(tp, '') for p in padrones)
