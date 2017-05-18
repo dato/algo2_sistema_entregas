@@ -5,7 +5,7 @@
 Cada entrega quedará registrada y le llegará a tu corrector asignado.
 </p>
 
-<form class="form-horizontal" role="form" method="post">
+<form class="form-horizontal" role="form" method="post" enctype="multipart/form-data">
   {% if alert %}<div class="alert alert-danger">{{ alert }}</div>{% endif %}
 
   <div class="form-group" id="fg_tp">
@@ -19,7 +19,7 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
     <label for="padron0" class="col-xs-2 control-label">Integrantes:</label>
     <div class="col-xs-4">
       <div id="padrones">
-        <input type="text" class="form-control" name="padron0" id="padron0" value="" placeholder="Padrón">
+        <input type="text" class="form-control" name="padron" id="padron0" value="" placeholder="Padrón">
       </div>
       <button type="button" class="btn btn-default btn-xs btn-block" id="add_padron" aria-label="Agregar integrante">
         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
@@ -30,12 +30,10 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
   <div class="form-group" id="fg_adjuntos">
     <label for="file0" class="col-xs-2 control-label">Adjuntos:</label>
     <div class="col-xs-4">
-      <div id="files">
-        <input type="file" id="file0" name="file0">
-      </div>
-      <button type="button" class="btn btn-default btn-xs btn-block" id="add_file" aria-label="Agregar archivo">
-        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
-      </button>
+      <label class="btn btn-default btn-file">
+        Elegir archivos<input type="file" multiple style="display: none" name="files" id="files">
+      </label>
+      <pre id="filenames" style="display: none"></pre>
       <p class="help-block">
         Formatos aceptados:
         <ul>
@@ -64,15 +62,20 @@ document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
   $(document).on('input', '#padrones input', validate);
   $('#add_padron').on('click', addPadron);
-  $('#add_file').on('click', addFile);
+  $('#files').on('change', showFiles);
 });
 
 function addPadron() {
   clone('padron', '#padrones');
 }
 
-function addFile() {
-  clone('file', '#files');
+function showFiles() {
+  var names = [];
+  for (var i = 0; i < $(this).get(0).files.length; ++i) {
+    names.push($(this).get(0).files[i].name);
+  }
+  $("#filenames").html(names.join('\n'));
+  $("#filenames").toggle(names.length > 0);
 }
 
 function clone(prefix, container) {
@@ -80,7 +83,7 @@ function clone(prefix, container) {
   var newInput = $(container).children().last().clone();
   newInput.val('');
   newInput.attr('id', id);
-  newInput.attr('name', id);
+  newInput.attr('name', prefix);
   newInput.appendTo($(container))
 }
 

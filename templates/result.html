@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+{% if warning %}
+    <div class="alert alert-warning" role="alert"><strong>Aviso:</strong> {{warning}}</div>
+{% endif %}
+{% if sent %}
+    <div class="alert alert-success" role="alert">
+        {% if sent.docentes|length > 0 %}
+            Tu <strong>{{sent.tp}}</strong> fue enviado a
+            <strong>{{ sent.docentes|join(', ') }}</strong>.
+        {% else %}
+            Tu <strong>{{sent.tp}}</strong> fue enviado.
+        {% endif %}
+    </div>
+{% endif %}
+{% if error %}
+    <div class="alert alert-danger" role="alert">{{error}}</div>
+{% endif %}
+{% endblock %}
