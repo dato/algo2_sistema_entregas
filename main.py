@@ -56,7 +56,7 @@ class MainPage(webapp2.RequestHandler):
 
     def sendmail(self, docentes, tp, padrones, files, body):
         mail.send_mail(
-            sender='Entregas Algoritmos 1 <{}@appspot.gserviceaccount.com>'.format(
+            sender='Entregas Algoritmos 1 <noreply@{}.appspotmail.com>'.format(
                 app_identity.get_application_id()
             ),
             to=['tps.7540rw@gmail.com'],
