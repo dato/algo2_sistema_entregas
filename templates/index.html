@@ -19,7 +19,6 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
     <label for="padron0" class="col-xs-2 control-label">Integrantes:</label>
     <div class="col-xs-4">
       <div id="padrones">
-        <input type="text" class="form-control" name="padron" id="padron0" value="" placeholder="Padrón">
       </div>
       <button type="button" class="btn btn-default btn-xs btn-block" id="add_padron" aria-label="Agregar integrante">
         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
@@ -38,6 +37,7 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
           <li><b>Informe:</b> <code>.pdf</code>, <code>.txt</code>
           <li><b>Código:</b> <code>.zip</code>, <code>.py</code>
         </ul>
+      </p>
     </div>
   </div>
   <div class="form-group" id="fg_body">
@@ -59,9 +59,12 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
   $(document).on('input', '#padrones input', validate);
-  $('#add_padron').on('click', addPadron);
+  $('#add_padron').on('click', addPadronInput);
+  addPadronInput();
   addFileInput();
 });
+
+var alumnos = JSON.parse('{{alumnos|safe}}');
 
 function addFileInput() {
   var inputGroup = $([
@@ -73,14 +76,19 @@ function addFileInput() {
         '</span>',
       '</label>',
       '<input type="text" class="form-control filename" readonly>',
-    '</div>',
+    '</div>'
   ].join(''));
   $('#files').append(inputGroup);
   $(inputGroup).find('input[type="file"]').on('change', setFile);
 }
 
-function addPadron() {
-  clone('padron', '#padrones');
+function addPadronInput() {
+  $('#padrones').append([
+    '<div class="input-group">',
+      '<input type="text" class="form-control" name="padron" id="padron0" value="" placeholder="Padrón">',
+      '<span class="input-group-addon"></span>',
+    '</div>'
+  ].join(''))
 }
 
 function setFile() {
@@ -107,25 +115,30 @@ function clone(prefix, container) {
 
 function validate() {
   var tp = validateAlNum($('#tp'), $('fg_tp'));
-  var padrones = validatePadrones();
+  var padrones = validatePadrones(tp);
   var valid = !!tp && !!padrones;
   $('#submit').prop('disabled', !valid);
 }
 
-function validatePadrones() {
+function validatePadrones(tp) {
   var padrones = []
   var valid = true;
-  $('#padrones').children().each(function(i) {
+  $('#padrones').find('input').each(function(i) {
     var el = $(this);
-    if (!el.val()) {
-      return;
+    var padron = null;
+    if (el.val()) {
+      padron = validateAlNum(el);
+      if (padron) {
+        padrones.push(padron);
+      } else {
+        valid = false;
+      }
     }
-    var padron = validateAlNum(el);
-    if (padron) {
-      padrones.push(padron);
-    } else {
-      valid = false;
+    var corrector = null;
+    if (padron && padron in alumnos && tp in alumnos[padron]) {
+      corrector = alumnos[padron][tp];
     }
+    el.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
   });
   valid = valid && padrones.length > 0;
   showValidation($('fg_integrantes'), valid);

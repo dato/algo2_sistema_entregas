@@ -6,16 +6,14 @@ import webapp2
 import jinja2
 import traceback
 from collections import namedtuple
+import json
+from correctores import alumnos
 
 templates = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates')),
     extensions=['jinja2.ext.autoescape'],
     autoescape=True,
 )
-
-alumnos = {
-    '1234': {'TP1': 'Diego Essaya'},
-}
 
 File = namedtuple('File', ['content', 'filename'])
 
@@ -27,7 +25,7 @@ class MainPage(webapp2.RequestHandler):
         })))
 
     def get(self):
-        self.render('index.html')
+        self.render('index.html', {'alumnos': json.dumps(alumnos)})
 
     def err(self, message):
         self.render('result.html', {'error': message})
