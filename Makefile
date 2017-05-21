@@ -4,4 +4,4 @@ start:
 deploy:
 	gcloud app deploy --project algoritmos1rw --verbosity=info app.yaml
 
-.PHONY: test deploy
+.PHONY: start deploy

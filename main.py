@@ -5,6 +5,7 @@ import os
 import webapp2
 import jinja2
 import traceback
+from collections import namedtuple
 
 templates = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates')),
@@ -15,6 +16,8 @@ templates = jinja2.Environment(
 alumnos = {
     '1234': {'TP1': 'Diego Essaya'},
 }
+
+File = namedtuple('File', ['content', 'filename'])
 
 class MainPage(webapp2.RequestHandler):
     def render(self, name, params = {}):
@@ -37,10 +40,11 @@ class MainPage(webapp2.RequestHandler):
         return padrones
 
     def get_files(self):
-        return [{
-            'content': f.file.read(),
-            'filename': f.filename,
-        } for f in self.request.POST.getall('files')]
+        return [
+            File(content=f.file.read(), filename=f.filename)
+            for f in self.request.POST.getall('files')
+            if hasattr(f, 'filename')
+        ]
 
     def post(self):
         try:

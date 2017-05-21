@@ -30,10 +30,8 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
   <div class="form-group" id="fg_adjuntos">
     <label for="file0" class="col-xs-2 control-label">Adjuntos:</label>
     <div class="col-xs-4">
-      <label class="btn btn-default btn-file">
-        Elegir archivos<input type="file" multiple style="display: none" name="files" id="files">
-      </label>
-      <pre id="filenames" style="display: none"></pre>
+      <div id="files">
+      </div>
       <p class="help-block">
         Formatos aceptados:
         <ul>
@@ -62,20 +60,40 @@ document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
   $(document).on('input', '#padrones input', validate);
   $('#add_padron').on('click', addPadron);
-  $('#files').on('change', showFiles);
+  addFileInput();
 });
+
+function addFileInput() {
+  var inputGroup = $([
+    '<div class="input-group">',
+      '<label class="input-group-btn">',
+        '<span class="btn btn-default">',
+          '<span class="glyphicon glyphicon-paperclip" aria-hidden="true"></span>',
+          '<input type="file" style="display: none;" name="files">',
+        '</span>',
+      '</label>',
+      '<input type="text" class="form-control filename" readonly>',
+    '</div>',
+  ].join(''));
+  $('#files').append(inputGroup);
+  $(inputGroup).find('input[type="file"]').on('change', setFile);
+}
 
 function addPadron() {
   clone('padron', '#padrones');
 }
 
-function showFiles() {
-  var names = [];
-  for (var i = 0; i < $(this).get(0).files.length; ++i) {
-    names.push($(this).get(0).files[i].name);
+function setFile() {
+  var filename = $(this).val().replace(/\\/g, '/').replace(/.*\//, '');
+  var inputGroup = $(this).closest('.input-group');
+  inputGroup.find('.filename').val(filename);
+  var emptyInputs = $('#files').find('input[type="file"]')
+    .map(function () { return $(this).val() }).get()
+    .filter(function (name) { return !name })
+    .length;
+  if (emptyInputs === 0) {
+    addFileInput();
   }
-  $("#filenames").html(names.join('\n'));
-  $("#filenames").toggle(names.length > 0);
 }
 
 function clone(prefix, container) {
