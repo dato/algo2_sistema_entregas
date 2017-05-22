@@ -31,6 +31,9 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
     <div class="col-xs-4">
       <div id="files">
       </div>
+      <button type="button" class="btn btn-default btn-xs btn-block" id="add_file" aria-label="Agregar adjunto">
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+      </button>
       <p class="help-block">
         Formatos aceptados:
         <ul>
@@ -59,9 +62,13 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
   $(document).on('input', '#padrones input', validate);
-  $('#add_padron').on('click', addPadronInput);
+
   addPadronInput();
+  $('#add_padron').on('click', addPadronInput);
+
   addFileInput();
+  $('#add_file').on('click', addFileInput);
+  $(document).on('click', '.rm_file', rmFileInput);
 });
 
 var alumnos = JSON.parse('{{alumnos|safe}}');
@@ -76,10 +83,19 @@ function addFileInput() {
         '</span>',
       '</label>',
       '<input type="text" class="form-control filename" readonly>',
+      '<span class="input-group-btn">',
+        '<button class="btn btn-default rm_file" type="button">',
+          '<span class="glyphicon glyphicon-trash" aria-hidden="true"></span>',
+        '</button>',
+      '</span>',
     '</div>'
   ].join(''));
   $('#files').append(inputGroup);
   $(inputGroup).find('input[type="file"]').on('change', setFile);
+}
+
+function rmFileInput() {
+  $(this).closest('.input-group').remove();
 }
 
 function addPadronInput() {
@@ -95,13 +111,12 @@ function setFile() {
   var filename = $(this).val().replace(/\\/g, '/').replace(/.*\//, '');
   var inputGroup = $(this).closest('.input-group');
   inputGroup.find('.filename').val(filename);
-  var emptyInputs = $('#files').find('input[type="file"]')
-    .map(function () { return $(this).val() }).get()
-    .filter(function (name) { return !name })
-    .length;
-  if (emptyInputs === 0) {
-    addFileInput();
-  }
+  validate();
+}
+
+function getFilenames() {
+  return $('#files').find('input[type="file"]')
+    .map(function () { return $(this).val() }).get();
 }
 
 function clone(prefix, container) {
@@ -114,15 +129,24 @@ function clone(prefix, container) {
 }
 
 function validate() {
-  var tp = validateAlNum($('#tp'), $('fg_tp'));
-  var padrones = validatePadrones(tp);
-  var valid = !!tp && !!padrones;
+  var tp = validateTP();
+  var padronesValid = validatePadrones(tp);
+  var filesValid = validateFiles();
+  var valid = !!tp && padronesValid && filesValid;
   $('#submit').prop('disabled', !valid);
 }
 
+function validateTP() {
+  var tp = validateAlNum($('#tp'), $('#fg_tp'));
+  var valid = Object.values(alumnos)
+    .filter(function (tps) {return !(tp in tps)})
+    .length === 0;
+  $('#tp').parent().toggleClass('has-success', valid);
+  return tp;
+}
+
 function validatePadrones(tp) {
-  var padrones = []
-  var valid = true;
+  var padrones = [];
   $('#padrones').find('input').each(function(i) {
     var el = $(this);
     var padron = null;
@@ -130,8 +154,6 @@ function validatePadrones(tp) {
       padron = validateAlNum(el);
       if (padron) {
         padrones.push(padron);
-      } else {
-        valid = false;
       }
     }
     var corrector = null;
@@ -139,10 +161,19 @@ function validatePadrones(tp) {
       corrector = alumnos[padron][tp];
     }
     el.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
+    el.parent().toggleClass('has-success', !!corrector);
   });
-  valid = valid && padrones.length > 0;
-  showValidation($('fg_integrantes'), valid);
-  return valid ? padrones : false;
+  return padrones.length > 0;
+}
+
+function validateFiles() {
+  var valid = false;
+  $('#files').find('input[type="file"]').each(function () {
+    var thisValid = !!($(this).val());
+    valid = valid || thisValid;
+    $(this).closest('.input-group').toggleClass('has-success', thisValid);
+  });
+  return valid;
 }
 
 function validateAlNum(el, formGoup) {
@@ -151,14 +182,7 @@ function validateAlNum(el, formGoup) {
   }
   var value = el.val().trim().toUpperCase();
   var valid = /^[\d\w]+$/.test(value);
-  if (formGoup) {
-    showValidation(formGoup, valid);
-  }
   return valid ? value : false;
-}
-
-function showValidation(el, valid) {
-  el.toggleClass('has-error', !valid);
 }
 </script>
 {% endblock %}
