@@ -5,12 +5,12 @@ import os
 import webapp2
 import jinja2
 import traceback
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 import json
 from google.appengine.api import mail, app_identity, urlfetch
 from planilla import fetch_planilla
 from urllib import urlencode
-from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, INDIVIDUAL, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID
+from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, INDIVIDUAL, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST
 import sys
 reload(sys)
 sys.setdefaultencoding("utf-8")
@@ -29,6 +29,7 @@ class MainPage(webapp2.RequestHandler):
         self.response.write(template.render(dict(params, **{
             'title': APP_TITLE,
             'recaptcha_site_id': RECAPTCHA_SITE_ID,
+            'test': TEST,
         })))
 
     def get(self):
@@ -67,28 +68,30 @@ class MainPage(webapp2.RequestHandler):
         ]
 
     def sendmail(self, emails_alumnos, email_docente, tp, grupo, padrones, files, body):
-        body = u'\n'.join([
-            tp,
-            u'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
-            u'\n'.join([u'  {}'.format(email) for email in emails_alumnos]),
-            u'\n{}\n'.format(body) if body else '',
-            '-- ',
-            u'{} - {}'.format(APP_TITLE, self.request.url),
-        ])
-        mail.send_mail(
-            sender='{} <noreply@{}.appspotmail.com>'.format(
+        email = [
+            ('sender', '{} <noreply@{}.appspotmail.com>'.format(
                 SENDER_NAME,
                 app_identity.get_application_id()
-            ),
-            to=[EMAIL_TO, email_docente],
-            cc=emails_alumnos,
-            subject=u'{} - {}'.format(tp, ' - '.join(padrones)),
-            body=body,
-            attachments=[
+            )),
+            ('subject', u'{} - {}'.format(tp, ' - '.join(padrones))),
+            ('to', [EMAIL_TO, email_docente]),
+            ('cc', emails_alumnos),
+            ('body', u'\n'.join([
+                tp,
+                u'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
+                u'\n'.join([u'  {}'.format(email) for email in emails_alumnos]),
+                u'\n{}\n'.format(body) if body else '',
+                '-- ',
+                u'{} - {}'.format(APP_TITLE, self.request.url),
+            ])),
+            ('attachments', [
                 mail.Attachment(f.filename, f.content)
                 for f in files
-            ]
-        )
+            ]),
+        ]
+        if not TEST:
+            mail.send_mail(**dict(email))
+        return email
 
     def post(self):
         try:
@@ -107,13 +110,14 @@ class MainPage(webapp2.RequestHandler):
             emails_alumnos = [planilla.emails_alumnos[p] for p in padrones]
             email_docente = planilla.emails_docentes[docente]
 
-            self.sendmail(emails_alumnos, email_docente, tp, grupo, padrones, files, body)
+            email = self.sendmail(emails_alumnos, email_docente, tp, grupo, padrones, files, body)
 
             self.render('result.html', {
                 'sent': {
                     'tp': tp,
                     'docente': docente,
-                }
+                    'email': u'\n'.join(u'[[{}]]: {}'.format(k, str(v)) for k, v in email) if TEST else None,
+                },
             })
         except Exception as e:
             print(traceback.format_exc())
@@ -146,4 +150,4 @@ def get_docente(correctores, padron_o_grupo, tp):
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),
-], debug=True)
+], debug=TEST)

@@ -7,6 +7,9 @@
     <div class="alert alert-success" role="alert">
         Tu <strong>{{sent.tp}}</strong> fue enviado a <strong>{{ sent.docente }}</strong>.
     </div>
+    {% if sent.email %}
+        <div class="alert alert-info" role="alert"><pre>{{sent.email}}</pre></div>
+    {% endif %}
 {% endif %}
 {% if error %}
     <div class="alert alert-danger" role="alert">{{error}}</div>

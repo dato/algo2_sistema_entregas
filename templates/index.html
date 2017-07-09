@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if test %}
+  <div class="alert alert-warning" role="alert">
+    <strong>Versión de prueba:</strong> No se enviará ningún e-mail.
+  </div>
+{% endif %}
+
 <p class="lead">
 Cada entrega quedará registrada y le llegará a tu corrector asignado.
 </p>
