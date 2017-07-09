@@ -7,8 +7,9 @@ import jinja2
 import traceback
 from collections import namedtuple
 import json
-from correctores import alumnos
 from google.appengine.api import mail, app_identity
+from planilla import fetch_planilla
+from config import SENDER_NAME, EMAIL_TO, APP_TITLE
 
 templates = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates')),
@@ -22,16 +23,20 @@ class MainPage(webapp2.RequestHandler):
     def render(self, name, params = {}):
         template = templates.get_template(name)
         self.response.write(template.render(dict(params, **{
-            'title': u'Algoritmos y Programación 1 - Entrega de TPs',
+            'title': APP_TITLE,
         })))
 
     def get(self):
-        self.render('index.html', {'alumnos': json.dumps(alumnos)})
+        planilla = fetch_planilla()
+        self.render('index.html', {
+            'alumnos': json.dumps(planilla.alumnos),
+            'entregas': planilla.entregas,
+        })
 
     def err(self, message):
         self.render('result.html', {'error': message})
 
-    def get_padrones(self):
+    def get_padrones(self, alumnos):
         padrones = [p.upper() for p in self.request.POST.getall('padron') if p]
         for p in padrones:
             if p not in alumnos:
@@ -45,7 +50,7 @@ class MainPage(webapp2.RequestHandler):
             if hasattr(f, 'filename')
         ]
 
-    def get_docentes(self, tp, padrones):
+    def get_docentes(self, alumnos, tp, padrones):
         docentes = set(alumnos[p].get(tp, '') for p in padrones)
         warning = None
         if '' in docentes:
@@ -54,14 +59,19 @@ class MainPage(webapp2.RequestHandler):
             warning = u'No hay un único docente asignado para el grupo.'
         return [d for d in docentes if d], warning
 
-    def sendmail(self, docentes, tp, padrones, files, body):
+    def sendmail(self, emails_alumnos, emails_docentes, tp, padrones, files, body):
         mail.send_mail(
-            sender='Entregas Algoritmos 1 <noreply@{}.appspotmail.com>'.format(
+            sender='{} <noreply@{}.appspotmail.com>'.format(
+                SENDER_NAME,
                 app_identity.get_application_id()
             ),
-            to=['tps.7540rw@gmail.com'],
+            to=[EMAIL_TO] + emails_docentes,
+            cc=emails_alumnos,
             subject=u'{} - {}'.format(tp, ' - '.join(padrones)),
-            body=body,
+            body='\n\n'.join([
+                'Entrega {} - {}'.format(tp, ', '.join(emails_alumnos)),
+                body,
+            ]),
             attachments=[
                 mail.Attachment(f.filename, f.content)
                 for f in files
@@ -70,13 +80,16 @@ class MainPage(webapp2.RequestHandler):
 
     def post(self):
         try:
+            planilla = fetch_planilla()
             tp = self.request.POST.get('tp').upper()
-            padrones = self.get_padrones()
+            padrones = self.get_padrones(planilla.alumnos)
             files = self.get_files()
             body = self.request.POST.get('body') or ''
-            docentes, warning = self.get_docentes(tp, padrones)
+            docentes, warning = self.get_docentes(planilla.alumnos, tp, padrones)
+            emails_alumnos = [planilla.emails_alumnos[p] for p in padrones]
+            emails_docentes = [planilla.emails_docentes[d] for d in docentes]
 
-            self.sendmail(docentes, tp, padrones, files, body)
+            self.sendmail(emails_alumnos, emails_docentes, tp, padrones, files, body)
 
             self.render('result.html', {
                 'warning': warning,

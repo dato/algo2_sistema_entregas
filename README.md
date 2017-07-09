@@ -5,7 +5,21 @@ Corre en Google App Engine.
 
 ## Instalación
 
-Instalar [gcloud sdk](https://cloud.google.com/appengine/docs/standard/python/download)
+* Instalar [gcloud sdk](https://cloud.google.com/appengine/docs/standard/python/download)
+
+## Configuración
+
+* En el proyecto de Google Cloud:
+    * Activar "Drive API".
+    * Ir a "Credentials > New Credentials > Service Account Key". Eso produce
+      un archivo json que se usa en el siguiente paso.
+
+* Copiar el archivo `config-sample.py` a `config.py` y completarlo:
+    * `SPREADSHEET_ID` es el id de la planilla.
+    * `SERVICE_ACCOUNT_CREDENTIALS` es el json generado arriba.
+
+* Compartir la planilla al email asociado con el Service Account (campo
+  `client_email` del json).
 
 ## Correr local
 
@@ -17,8 +31,8 @@ Instalar [gcloud sdk](https://cloud.google.com/appengine/docs/standard/python/do
 
 ## TODO
 
-* Leer los datos de la planilla (emails de los docentes, asignaciones de TPs,
-  emails de los alumnos).
+* Leer datos del grupo: ingresas tp y un padron, y si tenes un compañero de
+  grupo se da cuenta solo.
 
 * Agregar `reply_to: <email del alumno>` al enviar el mail.
 
