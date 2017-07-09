@@ -9,7 +9,7 @@ from collections import namedtuple
 import json
 from google.appengine.api import mail, app_identity
 from planilla import fetch_planilla
-from config import SENDER_NAME, EMAIL_TO, APP_TITLE
+from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, INDIVIDUAL
 
 templates = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates')),
@@ -29,19 +29,30 @@ class MainPage(webapp2.RequestHandler):
     def get(self):
         planilla = fetch_planilla()
         self.render('index.html', {
-            'alumnos': json.dumps(planilla.alumnos),
             'entregas': planilla.entregas,
+            'correctores_json': json.dumps(planilla.correctores),
+            'entregas_json': json.dumps(planilla.entregas),
+            'grupos_json': json.dumps({k: list(v) for k, v in planilla.grupos.iteritems()}),
         })
 
     def err(self, message):
         self.render('result.html', {'error': message})
 
-    def get_padrones(self, alumnos):
-        padrones = [p.upper() for p in self.request.POST.getall('padron') if p]
-        for p in padrones:
-            if p not in alumnos:
-                raise Exception(u'No se encuentra el alumno con padrón {}'.format(p))
-        return padrones
+    def get_padrones_grupo_docente(self, padron_o_grupo, tp, planilla):
+        if padron_o_grupo not in planilla.correctores:
+            raise Exception(u'No se encuentra el alumno o grupo {}'.format(p))
+        if planilla.entregas[tp] == GRUPAL:
+            if padron_o_grupo in planilla.grupos:
+                grupo = padron_o_grupo
+            else:
+                grupo = buscar_grupo(planilla.grupos, padron_o_grupo)
+            padrones = planilla.grupos[grupo]
+            docente = get_docente(planilla.correctores, grupo, tp)
+        else:
+            grupo = None
+            padrones = set([padron_o_grupo])
+            docente = get_docente(planilla.correctores, padron_o_grupo, tp)
+        return padrones, grupo, docente
 
     def get_files(self):
         return [
@@ -50,28 +61,24 @@ class MainPage(webapp2.RequestHandler):
             if hasattr(f, 'filename')
         ]
 
-    def get_docentes(self, alumnos, tp, padrones):
-        docentes = set(alumnos[p].get(tp, '') for p in padrones)
-        warning = None
-        if '' in docentes:
-            warning = u'No todos los integrantes tienen un docente asignado para el {}'.format(tp)
-        elif len(docentes) > 1:
-            warning = u'No hay un único docente asignado para el grupo.'
-        return [d for d in docentes if d], warning
-
-    def sendmail(self, emails_alumnos, emails_docentes, tp, padrones, files, body):
+    def sendmail(self, emails_alumnos, email_docente, tp, grupo, padrones, files, body):
+        body = u'\n'.join([
+            tp,
+            u'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
+            u'\n'.join([u'  {}'.format(email) for email in emails_alumnos]),
+            u'\n{}\n'.format(body) if body else '',
+            '-- ',
+            u'{} - {}'.format(APP_TITLE, self.request.url),
+        ])
         mail.send_mail(
             sender='{} <noreply@{}.appspotmail.com>'.format(
                 SENDER_NAME,
                 app_identity.get_application_id()
             ),
-            to=[EMAIL_TO] + emails_docentes,
+            to=[EMAIL_TO, email_docente],
             cc=emails_alumnos,
             subject=u'{} - {}'.format(tp, ' - '.join(padrones)),
-            body='\n\n'.join([
-                'Entrega {} - {}'.format(tp, ', '.join(emails_alumnos)),
-                body,
-            ]),
+            body=body,
             attachments=[
                 mail.Attachment(f.filename, f.content)
                 for f in files
@@ -82,25 +89,40 @@ class MainPage(webapp2.RequestHandler):
         try:
             planilla = fetch_planilla()
             tp = self.request.POST.get('tp').upper()
-            padrones = self.get_padrones(planilla.alumnos)
+            if tp not in planilla.entregas:
+                raise Exception(u'La entrega {} es inválida'.format(tp))
+            padrones, grupo, docente = self.get_padrones_grupo_docente(
+                self.request.POST.get('padron').upper(),
+                tp,
+                planilla,
+            )
             files = self.get_files()
             body = self.request.POST.get('body') or ''
-            docentes, warning = self.get_docentes(planilla.alumnos, tp, padrones)
             emails_alumnos = [planilla.emails_alumnos[p] for p in padrones]
-            emails_docentes = [planilla.emails_docentes[d] for d in docentes]
+            email_docente = planilla.emails_docentes[docente]
 
-            self.sendmail(emails_alumnos, emails_docentes, tp, padrones, files, body)
+            self.sendmail(emails_alumnos, email_docente, tp, grupo, padrones, files, body)
 
             self.render('result.html', {
-                'warning': warning,
                 'sent': {
                     'tp': tp,
-                    'docentes': docentes,
+                    'docente': docente,
                 }
             })
         except Exception as e:
             print(traceback.format_exc())
             self.err(e.message)
+
+def buscar_grupo(grupos, padron):
+    for grupo, padrones in grupos.iteritems():
+        if padron in padrones:
+            return grupo
+    raise Exception(u'No se encuentra el grupo para el padron {}'.format(padron))
+
+def get_docente(correctores, padron_o_grupo, tp):
+    if tp not in correctores[padron_o_grupo]:
+        raise Exception(u'No hay un corrector asignado para la entrega {}'.format(tp))
+    return correctores[padron_o_grupo][tp]
 
 app = webapp2.WSGIApplication([
     ('/', MainPage),

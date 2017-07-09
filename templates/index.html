@@ -13,21 +13,20 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
     <div class="col-xs-4">
       <select class="form-control" name="tp" id="tp" value="">
         <option style="display:none" selected value></option>
-        {% for tp in entregas %}
+        {% for tp in entregas|sort %}
           <option value="{{tp}}">{{tp}}</option>
         {% endfor %}
       </select>
     </div>
   </div>
-  <div class="form-group" id="fg_integrantes">
-    <label for="padron0" class="col-xs-2 control-label">Integrantes:</label>
+  <div class="form-group" id="fg_padron">
+    <label for="padron" class="col-xs-2 control-label">Padrón:</label>
     <div class="col-xs-4">
-      <div id="padrones">
+      <div class="input-group">
+        <input type="text" class="form-control" name="padron" id="padron" value="" placeholder="Padrón">
+        <span class="input-group-addon"></span>
       </div>
-      <button type="button" class="btn btn-default btn-xs btn-block" id="add_padron" aria-label="Agregar integrante">
-        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
-      </button>
-      <span id="helpBlock" class="help-block">Número de padrón o legajo</span>
+      <span class="help-block" id="padron_help">Número de padrón o legajo</span>
     </div>
   </div>
   <div class="form-group" id="fg_adjuntos">
@@ -51,7 +50,7 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
     <label for="body" class="col-xs-2 control-label">Mensaje (opcional):</label>
     <div class="col-xs-4">
       <textarea class="form-control" name="body" id="body"></textarea>
-      <span id="helpBlock" class="help-block">Cualquier aclaración de utilidad para el corrector</span>
+      <span class="help-block">Cualquier aclaración de utilidad para el corrector</span>
     </div>
   </div>
   <div class="form-group">
@@ -65,17 +64,28 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
-  $(document).on('input', '#padrones input', validate);
-
-  addPadronInput();
-  $('#add_padron').on('click', addPadronInput);
+  $('#padron').on('input', validate);
 
   addFileInput();
   $('#add_file').on('click', addFileInput);
   $(document).on('click', '.rm_file', rmFileInput);
 });
 
-var alumnos = JSON.parse('{{alumnos|safe}}');
+var correctores = JSON.parse('{{correctores_json|safe}}');
+var entregas = JSON.parse('{{entregas_json|safe}}');
+var grupos = invert(JSON.parse('{{grupos_json|safe}}'));
+
+function invert(dict) {
+    var res = {};
+    var ks = Object.keys(dict);
+    for (var i = 0; i < ks.length; i++) {
+        var xs = dict[ks[i]];
+        for (var j = 0; j < xs.length; j++) {
+            res[xs[j]] = ks[i];
+        }
+    }
+    return res;
+}
 
 function addFileInput() {
   var inputGroup = $([
@@ -102,15 +112,6 @@ function rmFileInput() {
   $(this).closest('.input-group').remove();
 }
 
-function addPadronInput() {
-  $('#padrones').append([
-    '<div class="input-group">',
-      '<input type="text" class="form-control" name="padron" id="padron0" value="" placeholder="Padrón">',
-      '<span class="input-group-addon"></span>',
-    '</div>'
-  ].join(''))
-}
-
 function setFile() {
   var filename = $(this).val().replace(/\\/g, '/').replace(/.*\//, '');
   var inputGroup = $(this).closest('.input-group');
@@ -133,41 +134,51 @@ function clone(prefix, container) {
 }
 
 function validate() {
+console.log('V');
   var tp = validateTP();
-  var padronesValid = validatePadrones(tp);
+  var padronValid = validatePadron(tp);
   var filesValid = validateFiles();
-  var valid = !!tp && padronesValid && filesValid;
+  var valid = !!tp && padronValid && filesValid;
   $('#submit').prop('disabled', !valid);
 }
 
 function validateTP() {
-  var tp = validateAlNum($('#tp'), $('#fg_tp'));
-  var valid = Object.values(alumnos)
-    .filter(function (tps) {return !(tp in tps)})
-    .length === 0;
+  var tp = validateAlNum($('#tp'));
+  var valid = tp in entregas;
   $('#tp').parent().toggleClass('has-success', valid);
+  if (valid) {
+    if (entregas[tp] === 'i') { // individual
+      $('#fg_padron label').html('Padrón:');
+      $('#fg_padron .help-block').html('Número de padrón o legajo:');
+      $('#padron').attr('placeholder', 'Padrón');
+    } else { // grupal
+      $('#fg_padron label').html('Padrón o grupo:');
+      $('#fg_padron .help-block').html('Número de padrón o legajo de algún integrante, o identificador del grupo (ejemplo: "G04"):');
+      $('#padron').attr('placeholder', 'Padrón o grupo');
+    }
+  }
   return tp;
 }
 
-function validatePadrones(tp) {
-  var padrones = [];
-  $('#padrones').find('input').each(function(i) {
-    var el = $(this);
-    var padron = null;
-    if (el.val()) {
-      padron = validateAlNum(el);
-      if (padron) {
-        padrones.push(padron);
+function validatePadron(tp) {
+  var input = $('#padron')
+  var padron = validateAlNum(input);
+  var valid = false;
+  if (padron) {
+    var corrector = null;
+    if (entregas[tp] === 'g') { // grupal
+      if (grupos[padron]) {
+        padron = grupos[padron];
       }
     }
-    var corrector = null;
-    if (padron && padron in alumnos && tp in alumnos[padron]) {
-      corrector = alumnos[padron][tp];
+    if (padron in correctores && tp in correctores[padron]) {
+      corrector = correctores[padron][tp];
+      valid = true;
     }
-    el.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
-    el.parent().toggleClass('has-success', !!corrector);
-  });
-  return padrones.length > 0;
+    input.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
+    input.parent().toggleClass('has-success', !!corrector);
+  }
+  return valid;
 }
 
 function validateFiles() {
@@ -180,7 +191,7 @@ function validateFiles() {
   return valid;
 }
 
-function validateAlNum(el, formGoup) {
+function validateAlNum(el) {
   if (el.length === 0) {
     return false;
   }

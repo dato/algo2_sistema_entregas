@@ -31,9 +31,4 @@ Corre en Google App Engine.
 
 ## TODO
 
-* Leer datos del grupo: ingresas tp y un padron, y si tenes un compañero de
-  grupo se da cuenta solo.
-
-* Agregar `reply_to: <email del alumno>` al enviar el mail.
-
 * ¿Poner un captcha?

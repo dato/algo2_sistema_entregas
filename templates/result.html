@@ -5,12 +5,7 @@
 {% endif %}
 {% if sent %}
     <div class="alert alert-success" role="alert">
-        {% if sent.docentes|length > 0 %}
-            Tu <strong>{{sent.tp}}</strong> fue enviado a
-            <strong>{{ sent.docentes|join(', ') }}</strong>.
-        {% else %}
-            Tu <strong>{{sent.tp}}</strong> fue enviado.
-        {% endif %}
+        Tu <strong>{{sent.tp}}</strong> fue enviado a <strong>{{ sent.docente }}</strong>.
     </div>
 {% endif %}
 {% if error %}
