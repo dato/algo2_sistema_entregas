@@ -7,9 +7,13 @@ import jinja2
 import traceback
 from collections import namedtuple
 import json
-from google.appengine.api import mail, app_identity
+from google.appengine.api import mail, app_identity, urlfetch
 from planilla import fetch_planilla
-from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, INDIVIDUAL
+from urllib import urlencode
+from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, INDIVIDUAL, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID
+import sys
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 templates = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates')),
@@ -24,6 +28,7 @@ class MainPage(webapp2.RequestHandler):
         template = templates.get_template(name)
         self.response.write(template.render(dict(params, **{
             'title': APP_TITLE,
+            'recaptcha_site_id': RECAPTCHA_SITE_ID,
         })))
 
     def get(self):
@@ -87,6 +92,7 @@ class MainPage(webapp2.RequestHandler):
 
     def post(self):
         try:
+            self.validate_captcha()
             planilla = fetch_planilla()
             tp = self.request.POST.get('tp').upper()
             if tp not in planilla.entregas:
@@ -112,6 +118,20 @@ class MainPage(webapp2.RequestHandler):
         except Exception as e:
             print(traceback.format_exc())
             self.err(e.message)
+
+    def validate_captcha(self):
+        response = urlfetch.fetch(
+            url='https://www.google.com/recaptcha/api/siteverify',
+            payload=urlencode({
+                "secret": RECAPTCHA_SECRET,
+                "remoteip": self.request.remote_addr,
+                "response": self.request.params.get("g-recaptcha-response"),
+            }),
+            method="POST",
+        )
+        response = json.loads(response.content)
+        if not response['success']:
+            raise Exception('Falló la validación del captcha')
 
 def buscar_grupo(grupos, padron):
     for grupo, padrones in grupos.iteritems():

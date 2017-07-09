@@ -17,6 +17,7 @@ Corre en Google App Engine.
 * Copiar el archivo `config-sample.py` a `config.py` y completarlo:
     * `SPREADSHEET_ID` es el id de la planilla.
     * `SERVICE_ACCOUNT_CREDENTIALS` es el json generado arriba.
+    * `RECAPTCHA_*` son credenciales de [recaptcha](https://www.google.com/recaptcha/admin).
 
 * Compartir la planilla al email asociado con el Service Account (campo
   `client_email` del json).
@@ -28,7 +29,3 @@ Corre en Google App Engine.
 ## Deploy
 
 `make deploy`
-
-## TODO
-
-* ¿Poner un captcha?
