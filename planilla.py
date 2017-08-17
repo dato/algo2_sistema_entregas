@@ -27,9 +27,21 @@ def parse_datos_alumnos(datos_alumnos):
             emails_alumnos[row[PADRON]] = u'{} <{}>'.format(row[NOMBRE], row[EMAIL])
     return emails_alumnos
 
+def safely_get_column(row, col_number):
+	return row[col_number] if col_number < len(row) else ""
+
 def parse_notas(notas):
     headers = notas[0]
+    
     PADRON = headers.index(u'Padrón')
+    DOCENTE_INDIV = headers.index(u'Ayudante')
+    DOCENTE_MAIL_INDIV = headers.index(u'Email')
+    DOCENTE_GRUP = headers.index(u'Ayudante grupo')
+    DOCENTE_MAIL_GRUP = headers.index(u'Mail ayudante grupo')
+    NRO_GRUPO = headers.index(u'Nro Grupo')
+    COMPA = headers.index(u'Nombre compañero')
+    PADRON_COMPA = headers.index(u'Padrón compañero')
+    MAIL_COMPA = headers.index(u'Mail compañero grupo')
 
     # correctores = { <padron o grupo> => { <tp> => <nombre docente> } }
     correctores = defaultdict(dict)
@@ -41,22 +53,22 @@ def parse_notas(notas):
     for row in notas[1:]:
         if PADRON >= len(row) or not row[PADRON]:
             break
+        # TODO: optimizar esto. No hace falta hacer iteraciones de más en
+        # algoritmos II porque todos los alumnos tienen un corrector
+        # individual y uno grupal (es decir: no varía según entrega).
         padron = row[PADRON]
         for tp, tipo in ENTREGAS.iteritems():
-            # si es individual: ..., docente, email, TPn, ...
-            # si es grupal: ..., grupo, padron compañero, email, docente, email, TPn, ...
-            col = headers.index(tp)
-            email_docente = row[col - 1]
-            docente = row[col - 2]
+            email_docente = safely_get_column(row, DOCENTE_MAIL_INDIV)
+            docente = safely_get_column(row, DOCENTE_INDIV)
             if not '@' in email_docente:
                 continue
             emails_docentes[docente] = u'{} <{}>'.format(docente, email_docente)
             if tipo == INDIVIDUAL:
                 correctores[padron][tp] = docente
             else:
-                grupo = row[col - 5]
-                padron_compa = row[col - 4]
-                email_compa = row[col - 4]
+                grupo = safely_get_column(row, NRO_GRUPO)
+                padron_compa = safely_get_column(row, PADRON_COMPA)
+                email_compa = safely_get_column(row, MAIL_COMPA)
                 correctores[grupo][tp] = docente
                 grupos[grupo].add(padron)
                 if email_compa and '@' in email_compa:
