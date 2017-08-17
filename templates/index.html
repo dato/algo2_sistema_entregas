@@ -8,7 +8,7 @@
 {% endif %}
 
 <p class="lead">
-Cada entrega quedará registrada y le llegará a tu corrector asignado.
+Cada entrega quedará registrada.
 </p>
 
 <form class="form-horizontal" role="form" method="post" enctype="multipart/form-data">
@@ -18,10 +18,7 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
     <label for="tp" class="col-xs-2 control-label">Entrega:</label>
     <div class="col-xs-4">
       <select class="form-control" name="tp" id="tp" value="">
-        <option style="display:none" selected value></option>
-        {% for tp in entregas|sort %}
-          <option value="{{tp}}">{{tp}}</option>
-        {% endfor %}
+        <option value="TP0" selected value>TP0</option>
       </select>
     </div>
   </div>
@@ -32,7 +29,6 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
         <input type="text" class="form-control" name="padron" id="padron" value="" placeholder="Padrón">
         <span class="input-group-addon"></span>
       </div>
-      <span class="help-block" id="padron_help">Número de padrón o legajo</span>
     </div>
   </div>
   <div class="form-group" id="fg_adjuntos">
@@ -44,11 +40,7 @@ Cada entrega quedará registrada y le llegará a tu corrector asignado.
         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
       </button>
       <p class="help-block">
-        Formatos aceptados:
-        <ul>
-          <li><b>Informe:</b> <code>.pdf</code>, <code>.txt</code>
-          <li><b>Código:</b> <code>.zip</code>, <code>.py</code>
-        </ul>
+        Formatos aceptados: <code>.zip</code>, <code>.c</code>
       </p>
     </div>
   </div>
@@ -83,9 +75,7 @@ document.addEventListener("DOMContentLoaded", function() {
   $(document).on('click', '.rm_file', rmFileInput);
 });
 
-var correctores = JSON.parse('{{correctores_json|safe}}');
-var entregas = JSON.parse('{{entregas_json|safe}}');
-var grupos = invert(JSON.parse('{{grupos_json|safe}}'));
+var alumnos  = JSON.parse('{{alumnos|safe}}');
 
 function invert(dict) {
     var res = {};
@@ -155,19 +145,10 @@ function validate() {
 
 function validateTP() {
   var tp = validateAlNum($('#tp'));
-  var valid = tp in entregas;
-  $('#tp').parent().toggleClass('has-success', valid);
-  if (valid) {
-    if (entregas[tp] === 'i') { // individual
-      $('#fg_padron label').html('Padrón:');
-      $('#fg_padron .help-block').html('Número de padrón o legajo:');
-      $('#padron').attr('placeholder', 'Padrón');
-    } else { // grupal
-      $('#fg_padron label').html('Padrón o grupo:');
-      $('#fg_padron .help-block').html('Número de padrón o legajo de algún integrante, o identificador del grupo (ejemplo: "G04"):');
-      $('#padron').attr('placeholder', 'Padrón o grupo');
-    }
-  }
+  $('#tp').parent().toggleClass('has-success', true);
+  $('#fg_padron label').html('Padrón:');
+  $('#fg_padron .help-block').html('Número de padrón o legajo:');
+  $('#padron').attr('placeholder', 'Padrón');
   return tp;
 }
 
@@ -176,19 +157,15 @@ function validatePadron(tp) {
   var padron = validateAlNum(input);
   var valid = false;
   if (padron) {
-    var corrector = null;
-    if (entregas[tp] === 'g') { // grupal
-      if (grupos[padron]) {
-        padron = grupos[padron];
-      }
-    }
-    if (padron in correctores && tp in correctores[padron]) {
-      corrector = correctores[padron][tp];
+    if (padron in alumnos) {
+      corrector = alumnos[padron][tp];
       valid = true;
-    }
-    input.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
-    input.parent().toggleClass('has-success', !!corrector);
+	}
   }
+  
+  input.parent().find('span').html(valid ? '<b>Padrón válido</b>' : '');
+  input.parent().toggleClass('has-success', valid);
+  
   return valid;
 }
 

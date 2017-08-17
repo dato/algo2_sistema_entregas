@@ -35,10 +35,7 @@ class MainPage(webapp2.RequestHandler):
     def get(self):
         planilla = fetch_planilla()
         self.render('index.html', {
-            'entregas': planilla.entregas,
-            'correctores_json': json.dumps(planilla.correctores),
-            'entregas_json': json.dumps(planilla.entregas),
-            'grupos_json': json.dumps({k: list(v) for k, v in planilla.grupos.iteritems()}),
+            'alumnos': json.dumps(planilla.emails_alumnos),
         })
 
     def err(self, message):
@@ -74,7 +71,7 @@ class MainPage(webapp2.RequestHandler):
                 app_identity.get_application_id()
             )),
             ('subject', u'{} - {}'.format(tp, ' - '.join(padrones))),
-            ('to', [EMAIL_TO, email_docente]),
+            ('to', [EMAIL_TO]),
             ('cc', emails_alumnos),
             ('body', u'\n'.join([
                 tp,
@@ -100,22 +97,17 @@ class MainPage(webapp2.RequestHandler):
             tp = self.request.POST.get('tp').upper()
             if tp not in planilla.entregas:
                 raise Exception(u'La entrega {} es inválida'.format(tp))
-            padrones, grupo, docente = self.get_padrones_grupo_docente(
-                self.request.POST.get('padron').upper(),
-                tp,
-                planilla,
-            )
             files = self.get_files()
+            grupo = ''
             body = self.request.POST.get('body') or ''
+            padrones = [self.request.POST.get('padron')]
             emails_alumnos = [planilla.emails_alumnos[p] for p in padrones]
-            email_docente = planilla.emails_docentes[docente]
-
+            email_docente = ''
             email = self.sendmail(emails_alumnos, email_docente, tp, grupo, padrones, files, body)
 
             self.render('result.html', {
                 'sent': {
                     'tp': tp,
-                    'docente': docente,
                     'email': u'\n'.join(u'[[{}]]: {}'.format(k, str(v)) for k, v in email) if TEST else None,
                 },
             })
