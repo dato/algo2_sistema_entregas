@@ -10,9 +10,10 @@ Corre en Google App Engine.
 ## Configuración
 
 * En el proyecto de Google Cloud:
-    * Activar "Drive API".
-    * Ir a "Credentials > New Credentials > Service Account Key". Eso produce
-      un archivo json que se usa en el siguiente paso.
+    * Activar "Drive API" (APIs & Service > Enable APIs > Google Drive API > Enable).
+    * Crear una Service Account sin roles (IAM&Admin > Credentials). Crear 
+    una clave privada y desactivar la delegación para el dominio.
+    Esto produce un archivo json que se usa en el siguiente paso.
 
 * Copiar el archivo `config-sample.py` a `config.py` y completarlo:
     * `SPREADSHEET_ID` es el id de la planilla.
@@ -28,4 +29,5 @@ Corre en Google App Engine.
 
 ## Deploy
 
-`make deploy`
+- Configurar el proyecto en el archivo de Makefile.
+- Correr `make deploy`
