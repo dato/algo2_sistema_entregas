@@ -64,7 +64,7 @@ class MainPage(webapp2.RequestHandler):
             if hasattr(f, 'filename')
         ]
 
-    def sendmail(self, emails_alumnos, email_docente, tp, grupo, padrones, files, body):
+    def sendmail(self, email_alumno, email_docente, tp, grupo, padrones, files, body):
         email = [
             ('sender', '{} <noreply@{}.appspotmail.com>'.format(
                 SENDER_NAME,
@@ -72,11 +72,11 @@ class MainPage(webapp2.RequestHandler):
             )),
             ('subject', u'{} - {}'.format(tp, ' - '.join(padrones))),
             ('to', [EMAIL_TO]),
-            ('cc', emails_alumnos),
+            ('reply_to', email_alumno),
             ('body', u'\n'.join([
                 tp,
                 u'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
-                u'\n'.join([u'  {}'.format(email) for email in emails_alumnos]),
+                u'\n'.join([email_alumno]),
                 u'\n{}\n'.format(body) if body else '',
                 '-- ',
                 u'{} - {}'.format(APP_TITLE, self.request.url),
@@ -101,9 +101,9 @@ class MainPage(webapp2.RequestHandler):
             grupo = ''
             body = self.request.POST.get('body') or ''
             padrones = [self.request.POST.get('padron')]
-            emails_alumnos = [planilla.emails_alumnos[p] for p in padrones]
+            email_alumno = planilla.emails_alumnos[padrones[0]]
             email_docente = ''
-            email = self.sendmail(emails_alumnos, email_docente, tp, grupo, padrones, files, body)
+            email = self.sendmail(email_alumno, email_docente, tp, grupo, padrones, files, body)
 
             self.render('result.html', {
                 'sent': {
