@@ -1,2 +1,46 @@
+# Config files.
 *.pyc
 config.py
+*.json
+
+pyvenv.cfg
+pip-selfcheck.json
+urlfetch.useragents.list
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+bin/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64
+lib64/
+parts/
+sdist/
+share/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+instance/
+.webassets-cache
+
+.env
+env/
+venv/
+ENV/
+
+.idea

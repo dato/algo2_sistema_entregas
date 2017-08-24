@@ -1,8 +1,5 @@
-# -*- coding: utf8 -*-
-
-from apiclient import discovery
+import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-from google.appengine.api import memcache
 from collections import namedtuple, defaultdict
 from config import SPREADSHEET_ID, ENTREGAS, SERVICE_ACCOUNT_CREDENTIALS, GRUPAL, INDIVIDUAL
 
@@ -10,28 +7,34 @@ SCOPE = ['https://spreadsheets.google.com/feeds']
 SHEET_NOTAS = 'Notas'
 SHEET_DATOS_ALUMNOS = 'DatosAlumnos'
 
+
 def fetch_sheet(ranges):
     credentials = ServiceAccountCredentials.from_json_keyfile_dict(SERVICE_ACCOUNT_CREDENTIALS, SCOPE)
-    service = discovery.build('sheets', 'v4', credentials=credentials)
-    r = service.spreadsheets().values().batchGet(spreadsheetId=SPREADSHEET_ID, ranges=ranges).execute()
-    return [_[u'values'] for _ in r[u'valueRanges']]
+    gc = gspread.authorize(credentials)
+    sheet = gc.open_by_key(SPREADSHEET_ID)
+    return [sheet.worksheet(worksheet) for worksheet in ranges]
+
 
 def parse_datos_alumnos(datos_alumnos):
     # emails_alumnos = { <padron> => <email> }
     emails_alumnos = {}
     NOMBRE = 0
-    PADRON = datos_alumnos[0].index(u'Padrón')
-    EMAIL = datos_alumnos[0].index(u'Email')
-    for row in datos_alumnos[1:]:
+    celdas = datos_alumnos.get_all_values()
+    PADRON = celdas[0].index(u'Padrón')
+    EMAIL = celdas[0].index(u'Email')
+    for row in celdas[1:]:
         if EMAIL < len(row) and row[PADRON] and '@' in row[EMAIL]:
             emails_alumnos[row[PADRON]] = u'{} <{}>'.format(row[NOMBRE], row[EMAIL])
     return emails_alumnos
 
+
 def safely_get_column(row, col_number):
-	return row[col_number] if col_number < len(row) else ""
+    return row[col_number] if col_number < len(row) else ""
+
 
 def parse_notas(notas):
-    headers = notas[0]
+    celdas = notas.get_all_values()
+    headers = celdas[0]
     
     PADRON = headers.index(u'Padrón')
     DOCENTE_INDIV = headers.index(u'Ayudante')
@@ -50,7 +53,7 @@ def parse_notas(notas):
     # emails_docentes = { <nombre docente> => <email> }
     emails_docentes = {}
 
-    for row in notas[1:]:
+    for row in celdas[1:]:
         if PADRON >= len(row) or not row[PADRON]:
             break
         # TODO: optimizar esto. No hace falta hacer iteraciones de más en
@@ -83,7 +86,8 @@ Planilla = namedtuple('Planilla', [
     'entregas',
 ])
 
-def _fetch_planilla():
+
+def fetch_planilla():
     notas, datos_alumnos = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS])
     emails_alumnos = parse_datos_alumnos(datos_alumnos)
     correctores, grupos, emails_docentes = parse_notas(notas)
@@ -94,11 +98,3 @@ def _fetch_planilla():
         emails_docentes,
         ENTREGAS,
     )
-
-def fetch_planilla():
-    key = 'planilla'
-    planilla = memcache.get(key)
-    if planilla is None:
-        planilla = _fetch_planilla()
-        memcache.set(key, planilla, 600) # 10 minutes
-    return planilla
