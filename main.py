@@ -1,9 +1,5 @@
 import base64
 import datetime
-import email
-import email.message
-import email.policy
-import email.utils
 import json
 import mimetypes
 import smtplib
@@ -11,6 +7,7 @@ import traceback
 from collections import namedtuple
 from email import encoders
 from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib.parse import urlencode
 
@@ -20,6 +17,7 @@ import urlfetch
 from flask import Flask
 from flask import render_template
 from flask import request
+from werkzeug.utils import secure_filename
 
 from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST, CLIENT_ID, \
     CLIENT_SECRET, OAUTH_REFRESH_TOKEN
@@ -27,6 +25,9 @@ from planilla import fetch_planilla
 
 app = Flask(__name__)
 File = namedtuple('File', ['content', 'filename'])
+
+
+EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}
 
 
 @app.route('/', methods=['GET'])
@@ -67,28 +68,35 @@ def get_padrones_grupo_docente(padron_o_grupo, tp, planilla):
     return padrones, grupo, docente
 
 
+def archivo_es_permitido(nombre):
+    return '.' in nombre and \
+           nombre.rsplit('.', 1)[1].lower() in EXTENSIONES_ACEPTADAS
+
+
 def get_files():
+    files = request.files.getlist('files')
     return [
-        File(content=f.file.read(), filename=f.filename)
-        for f in request.files
-        if hasattr(f, 'filename')
+        File(content=f.read(), filename=secure_filename(f.filename))
+        for f in files
+        if f and archivo_es_permitido(f.filename)
     ]
 
 
 def sendmail(email_alumno, email_docente, tp, grupo, padrones, files, body):
-    correo = email.message.Message(email.policy.default)
-    correo.set_payload('\n'.join([
+    correo = MIMEMultipart()
+    correo["From"] = SENDER_NAME
+    correo["To"] = EMAIL_TO
+    correo["Cc"] = email_alumno
+    correo["Subject"] = '{} - {}'.format(tp, ' - '.join(padrones))
+
+    correo.attach(MIMEText('\n'.join([
             tp,
             'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
             '\n'.join([email_alumno]),
             '\n{}\n'.format(body) if body else '',
             '-- ',
             '{} - {}'.format(APP_TITLE, request.url),
-        ]), "utf-8")
-    correo["From"] = SENDER_NAME
-    correo["To"] = EMAIL_TO
-    correo["Cc"] = email_alumno
-    correo["Subject"] = '{} - {}'.format(tp, ' - '.join(padrones))
+        ]), 'plain'))
 
     for f in files:
         # Tomado de: https://docs.python.org/3.5/library/email-examples.html#id2
@@ -145,7 +153,7 @@ def get_oauth_credentials():
 @app.route('/', methods=['POST'])
 def post():
     try:
-        validate_captcha()
+        #validate_captcha()
         planilla = fetch_planilla()
         tp = request.form['tp'].upper()
         if tp not in planilla.entregas:
