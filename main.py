@@ -1,24 +1,31 @@
+import base64
+import datetime
+import email
+import email.message
+import email.policy
+import email.utils
 import json
+import mimetypes
+import smtplib
 import traceback
-import urlfetch
 from collections import namedtuple
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
 from urllib.parse import urlencode
 
+import httplib2
+import oauth2client.client
+import urlfetch
 from flask import Flask
 from flask import render_template
 from flask import request
 
-from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST
+from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST, CLIENT_ID, \
+    CLIENT_SECRET, OAUTH_REFRESH_TOKEN
 from planilla import fetch_planilla
 
 app = Flask(__name__)
-
-# templates = jinja2.Environment(
-#     loader=jinja2.FileSystemLoader(os.path.join(os.path.dirname(__file__), 'templates')),
-#     extensions=['jinja2.ext.autoescape'],
-#     autoescape=True,
-# )
-
 File = namedtuple('File', ['content', 'filename'])
 
 
@@ -30,17 +37,17 @@ def get():
     })
 
 
+@app.errorhandler(Exception)
+def err(message):
+    return render('result.html', {'error': message})
+
+
 def render(name, params={}):
     return render_template(name, **dict(params, **{
         'title': APP_TITLE,
         'recaptcha_site_id': RECAPTCHA_SITE_ID,
         'test': TEST,
     }))
-
-
-@app.errorhandler(Exception)
-def err(message):
-    return render('result.html', {'error': message})
 
 
 def get_padrones_grupo_docente(padron_o_grupo, tp, planilla):
@@ -55,7 +62,7 @@ def get_padrones_grupo_docente(padron_o_grupo, tp, planilla):
         docente = get_docente(planilla.correctores, grupo, tp)
     else:
         grupo = None
-        padrones = set([padron_o_grupo])
+        padrones = {padron_o_grupo}
         docente = get_docente(planilla.correctores, padron_o_grupo, tp)
     return padrones, grupo, docente
 
@@ -69,30 +76,70 @@ def get_files():
 
 
 def sendmail(email_alumno, email_docente, tp, grupo, padrones, files, body):
-    email = [
-        ('sender', '{} <noreply@{}.appspotmail.com>'.format(
-            SENDER_NAME,
-            app_identity.get_application_id()
-        )),
-        ('subject', u'{} - {}'.format(tp, ' - '.join(padrones))),
-        ('to', [EMAIL_TO]),
-        ('reply_to', email_alumno),
-        ('body', u'\n'.join([
+    correo = email.message.Message(email.policy.default)
+    correo.set_payload('\n'.join([
             tp,
-            u'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
-            u'\n'.join([email_alumno]),
-            u'\n{}\n'.format(body) if body else '',
+            'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
+            '\n'.join([email_alumno]),
+            '\n{}\n'.format(body) if body else '',
             '-- ',
-            u'{} - {}'.format(APP_TITLE, request.url),
-        ])),
-        ('attachments', [
-            mail.Attachment(f.filename, f.content)
-            for f in files
-        ]),
-    ]
+            '{} - {}'.format(APP_TITLE, request.url),
+        ]), "utf-8")
+    correo["From"] = SENDER_NAME
+    correo["To"] = EMAIL_TO
+    correo["Cc"] = email_alumno
+    correo["Subject"] = '{} - {}'.format(tp, ' - '.join(padrones))
+
+    for f in files:
+        # Tomado de: https://docs.python.org/3.5/library/email-examples.html#id2
+        # Adivinamos el Content-Type de acuerdo a la extensión del fichero.
+        ctype, encoding = mimetypes.guess_type(f.filename)
+        if ctype is None or encoding is not None:
+            # No pudimos adivinar, así que usamos un Content-Type genérico.
+            ctype = 'application/octet-stream'
+        maintype, subtype = ctype.split('/', 1)
+        if maintype == 'text':
+            msg = MIMEText(f.content, _subtype=subtype)
+        else:
+            msg = MIMEBase(maintype, subtype)
+            msg.set_payload(f.content)
+            # Codificamos el payload en base 64.
+            encoders.encode_base64(msg)
+        # Set the filename parameter
+        msg.add_header('Content-Disposition', 'attachment', filename=f.filename)
+        correo.attach(msg)
+
     if not TEST:
-        mail.send_mail(**dict(email))
-    return email
+        creds = get_oauth_credentials()
+        xoauth2_tok = "user=%s\1" "auth=Bearer %s\1\1" % (EMAIL_TO,
+                                                          creds.access_token)
+        xoauth2_b64 = base64.b64encode(xoauth2_tok.encode("ascii")).decode("ascii")
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()  # Se necesita EHLO de nuevo tras STARTTLS.
+        server.docmd("AUTH", "XOAUTH2 " + xoauth2_b64)
+        server.send_message(correo)
+        server.close()
+
+    return correo
+
+
+def get_oauth_credentials():
+    """Refresca y devuelve nuestras credenciales OAuth.
+    """
+    # N.B.: siempre re-generamos el token de acceso porque este script es
+    # stateless y no guarda las credenciales en ningún sitio. Todo bien con eso
+    # mientras no alcancemos el límite de refresh() de Google (pero no publican
+    # cuál es).
+    creds = oauth2client.client.OAuth2Credentials(
+        "", CLIENT_ID, CLIENT_SECRET, OAUTH_REFRESH_TOKEN,
+        datetime.datetime(2015, 1, 1),
+        "https://accounts.google.com/o/oauth2/token", "corrector/1.0")
+
+    creds.refresh(httplib2.Http())
+    return creds
 
 
 @app.route('/', methods=['POST'])
