@@ -1,6 +1,7 @@
 import base64
 import datetime
 import json
+import logging
 import mimetypes
 import smtplib
 import traceback
@@ -39,8 +40,9 @@ def get():
 
 
 @app.errorhandler(Exception)
-def err(message):
-    return render('result.html', {'error': message})
+def err(error):
+    logging.exception(error)
+    return render('result.html', {'error': error})
 
 
 def render(name, params={}):
