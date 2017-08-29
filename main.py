@@ -55,7 +55,7 @@ def render(name, params={}):
 
 def get_padrones_grupo_docente(padron_o_grupo, tp, planilla):
     if padron_o_grupo not in planilla.correctores:
-        raise Exception(u'No se encuentra el alumno o grupo {}'.format(padron_o_grupo))
+        raise Exception('No se encuentra el alumno o grupo {}'.format(padron_o_grupo))
     if planilla.entregas[tp] == GRUPAL:
         if padron_o_grupo in planilla.grupos:
             grupo = padron_o_grupo
@@ -159,7 +159,7 @@ def post():
         planilla = fetch_planilla()
         tp = request.form['tp'].upper()
         if tp not in planilla.entregas:
-            raise Exception(u'La entrega {} es inválida'.format(tp))
+            raise Exception('La entrega {} es inválida'.format(tp))
         files = get_files()
         grupo = ''
         body = request.form['body'] or ''
@@ -171,7 +171,7 @@ def post():
         return render('result.html', {
             'sent': {
                 'tp': tp,
-                'email': u'\n'.join(u'[[{}]]: {}'.format(k, str(v)) for k, v in email) if TEST else None,
+                'email': '\n'.join('[[{}]]: {}'.format(k, str(v)) for k, v in email) if TEST else None,
             },
         })
     except Exception as e:
@@ -198,10 +198,10 @@ def buscar_grupo(grupos, padron):
     for grupo, padrones in grupos.iteritems():
         if padron in padrones:
             return grupo
-    raise Exception(u'No se encuentra el grupo para el padron {}'.format(padron))
+    raise Exception('No se encuentra el grupo para el padron {}'.format(padron))
 
 
 def get_docente(correctores, padron_o_grupo, tp):
     if tp not in correctores[padron_o_grupo]:
-        raise Exception(u'No hay un corrector asignado para la entrega {}'.format(tp))
+        raise Exception('No hay un corrector asignado para la entrega {}'.format(tp))
     return correctores[padron_o_grupo][tp]

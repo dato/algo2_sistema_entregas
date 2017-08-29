@@ -1,10 +1,10 @@
 # -*- coding: utf8 -*-
 
 SPREADSHEET_ID = '...'
-ENTREGAS = [u'EJ1', u'TP1', u'TP2', u'TP3']
+ENTREGAS = ['EJ1', 'TP1', 'TP2', 'TP3']
 SENDER_NAME = 'Entregas Algoritmos 1'
 EMAIL_TO = 'tps.7540rw@gmail.com'
-APP_TITLE = u'Algoritmos y Programación 1 - Entrega de TPs'
+APP_TITLE = 'Algoritmos y Programación 1 - Entrega de TPs'
 
 SERVICE_ACCOUNT_CREDENTIALS = {
   "type": "service_account",

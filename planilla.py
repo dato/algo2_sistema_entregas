@@ -20,11 +20,11 @@ def parse_datos_alumnos(datos_alumnos):
     emails_alumnos = {}
     NOMBRE = 0
     celdas = datos_alumnos.get_all_values()
-    PADRON = celdas[0].index(u'Padrón')
-    EMAIL = celdas[0].index(u'Email')
+    PADRON = celdas[0].index('Padrón')
+    EMAIL = celdas[0].index('Email')
     for row in celdas[1:]:
         if EMAIL < len(row) and row[PADRON] and '@' in row[EMAIL]:
-            emails_alumnos[row[PADRON]] = u'{} <{}>'.format(row[NOMBRE], row[EMAIL])
+            emails_alumnos[row[PADRON]] = '{} <{}>'.format(row[NOMBRE], row[EMAIL])
     return emails_alumnos
 
 
@@ -36,15 +36,15 @@ def parse_notas(notas):
     celdas = notas.get_all_values()
     headers = celdas[0]
     
-    PADRON = headers.index(u'Padrón')
-    DOCENTE_INDIV = headers.index(u'Ayudante')
-    DOCENTE_MAIL_INDIV = headers.index(u'Email')
-    DOCENTE_GRUP = headers.index(u'Ayudante grupo')
-    DOCENTE_MAIL_GRUP = headers.index(u'Mail ayudante grupo')
-    NRO_GRUPO = headers.index(u'Nro Grupo')
-    COMPA = headers.index(u'Nombre compañero')
-    PADRON_COMPA = headers.index(u'Padrón compañero')
-    MAIL_COMPA = headers.index(u'Mail compañero grupo')
+    PADRON = headers.index('Padrón')
+    DOCENTE_INDIV = headers.index('Ayudante')
+    DOCENTE_MAIL_INDIV = headers.index('Email')
+    DOCENTE_GRUP = headers.index('Ayudante grupo')
+    DOCENTE_MAIL_GRUP = headers.index('Mail ayudante grupo')
+    NRO_GRUPO = headers.index('Nro Grupo')
+    COMPA = headers.index('Nombre compañero')
+    PADRON_COMPA = headers.index('Padrón compañero')
+    MAIL_COMPA = headers.index('Mail compañero grupo')
 
     # correctores = { <padron o grupo> => { <tp> => <nombre docente> } }
     correctores = defaultdict(dict)
@@ -60,12 +60,12 @@ def parse_notas(notas):
         # algoritmos II porque todos los alumnos tienen un corrector
         # individual y uno grupal (es decir: no varía según entrega).
         padron = row[PADRON]
-        for tp, tipo in ENTREGAS.iteritems():
+        for tp, tipo in ENTREGAS.items():
             email_docente = safely_get_column(row, DOCENTE_MAIL_INDIV)
             docente = safely_get_column(row, DOCENTE_INDIV)
             if not '@' in email_docente:
                 continue
-            emails_docentes[docente] = u'{} <{}>'.format(docente, email_docente)
+            emails_docentes[docente] = '{} <{}>'.format(docente, email_docente)
             if tipo == INDIVIDUAL:
                 correctores[padron][tp] = docente
             else:
