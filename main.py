@@ -35,7 +35,10 @@ EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}
 def get():
     planilla = fetch_planilla()
     return render('index.html', {
-        'alumnos': json.dumps(planilla.emails_alumnos),
+        'entregas': planilla.entregas,
+        'entregas_json': json.dumps(planilla.entregas),
+        'alumnos_json': json.dumps(planilla.emails_alumnos),
+        'correctores_json': json.dumps(planilla.correctores),
     })
 
 
@@ -88,7 +91,6 @@ def sendmail(email_alumno, email_docente, tp, grupo, padrones, files, body):
     correo = MIMEMultipart()
     correo["From"] = SENDER_NAME
     correo["To"] = EMAIL_TO
-    correo["Cc"] = email_alumno
     correo["Subject"] = '{} - {}'.format(tp, ' - '.join(padrones))
 
     correo.attach(MIMEText('\n'.join([

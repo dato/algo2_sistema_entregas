@@ -18,7 +18,10 @@ Cada entrega quedará registrada.
     <label for="tp" class="col-xs-2 control-label">Entrega:</label>
     <div class="col-xs-4">
       <select class="form-control" name="tp" id="tp" value="">
-        <option value="TP0" selected value>TP0</option>
+        <option style="display:none" selected value></option>
+        {% for tp in entregas|sort %}
+          <option value="{{tp}}">{{tp}}</option>
+        {% endfor %}
       </select>
     </div>
   </div>
@@ -48,7 +51,7 @@ Cada entrega quedará registrada.
     <label for="body" class="col-xs-2 control-label">Mensaje (opcional):</label>
     <div class="col-xs-4">
       <textarea class="form-control" name="body" id="body"></textarea>
-      <span class="help-block">Cualquier aclaración de utilidad para el corrector</span>
+      <span class="help-block">Cualquier aclaración de utilidad para el corrector.</span>
     </div>
   </div>
   <div class="form-group">
@@ -75,7 +78,9 @@ document.addEventListener("DOMContentLoaded", function() {
   $(document).on('click', '.rm_file', rmFileInput);
 });
 
-var alumnos  = JSON.parse('{{alumnos|safe}}');
+var alumnos  = JSON.parse('{{alumnos_json|safe}}');
+var correctores = JSON.parse('{{correctores_json|safe}}');
+var entregas = JSON.parse('{{entregas_json|safe}}');
 
 function invert(dict) {
     var res = {};
@@ -145,27 +150,57 @@ function validate() {
 
 function validateTP() {
   var tp = validateAlNum($('#tp'));
-  $('#tp').parent().toggleClass('has-success', true);
-  $('#fg_padron label').html('Padrón:');
-  $('#fg_padron .help-block').html('Número de padrón o legajo:');
-  $('#padron').attr('placeholder', 'Padrón');
+  var valid = tp in entregas;
+  $('#tp').parent().toggleClass('has-success', valid);
+
+  if (!valid) {
+    return tp;
+  }
+
+  if (entregas[tp] === 'i') { // individual
+    $('#fg_padron label').html('Padrón:');
+    $('#fg_padron .help-block').html('Número de padrón:');
+    $('#padron').attr('placeholder', 'Padrón');
+  } else { // grupal
+    $('#fg_padron label').html('Padrón o grupo:');
+    $('#fg_padron .help-block').html('Número de padrón de algún integrante o identificador del grupo (ejemplo: "G04"):');
+    $('#padron').attr('placeholder', 'Padrón o grupo');
+  }
+
   return tp;
 }
 
 function validatePadron(tp) {
-  var input = $('#padron')
+  var input = $('#padron');
   var padron = validateAlNum(input);
-  var valid = false;
-  if (padron) {
-    if (padron in alumnos) {
-      corrector = alumnos[padron][tp];
-      valid = true;
-	}
+
+  if(!padron) {
+    return false;
   }
-  
-  input.parent().find('span').html(valid ? '<b>Padrón válido</b>' : '');
-  input.parent().toggleClass('has-success', valid);
-  
+
+  var valid = false;
+  var corrector = null;
+  if (entregas[tp] === 'g') { // grupal
+    if (grupos[padron]) {
+      padron = grupos[padron];
+    }
+  }
+
+  if (padron in correctores && tp in correctores[padron]) {
+    corrector = correctores[padron][tp];
+    valid = true;
+  }
+
+  input.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
+  input.parent().toggleClass('has-success', !!corrector);
+
+  if(!valid && padron in alumnos) {
+    // Aún no tiene un corrector asignado.
+    input.parent().find('span').html('<b>Padrón válido</b>');
+    input.parent().toggleClass('has-success', true);
+    valid = true;
+  }
+
   return valid;
 }
 
