@@ -78,7 +78,6 @@ document.addEventListener("DOMContentLoaded", function() {
   $(document).on('click', '.rm_file', rmFileInput);
 });
 
-var alumnos  = JSON.parse('{{alumnos_json|safe}}');
 var correctores = JSON.parse('{{correctores_json|safe}}');
 var entregas = JSON.parse('{{entregas_json|safe}}');
 
@@ -186,7 +185,7 @@ function validatePadron(tp) {
     }
   }
 
-  if (padron in correctores && tp in correctores[padron]) {
+  if (padron in correctores && correctores[padron][tp]) {
     corrector = correctores[padron][tp];
     valid = true;
   }
@@ -194,7 +193,7 @@ function validatePadron(tp) {
   input.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
   input.parent().toggleClass('has-success', !!corrector);
 
-  if(!valid && padron in alumnos) {
+  if(!valid && padron in correctores) {
     // Aún no tiene un corrector asignado.
     input.parent().find('span').html('<b>Padrón válido</b>');
     input.parent().toggleClass('has-success', true);

@@ -37,7 +37,6 @@ def get():
     return render('index.html', {
         'entregas': planilla.entregas,
         'entregas_json': json.dumps(planilla.entregas),
-        'alumnos_json': json.dumps(planilla.emails_alumnos),
         'correctores_json': json.dumps(planilla.correctores),
     })
 
@@ -91,6 +90,7 @@ def sendmail(email_alumno, email_docente, tp, grupo, padrones, files, body):
     correo = MIMEMultipart()
     correo["From"] = SENDER_NAME
     correo["To"] = EMAIL_TO
+    correo["Cc"] = ", ".join([email_alumno, email_docente]) if email_docente else email_alumno
     correo["Subject"] = '{} - {}'.format(tp, ' - '.join(padrones))
 
     correo.attach(MIMEText('\n'.join([
@@ -157,18 +157,23 @@ def get_oauth_credentials():
 @app.route('/', methods=['POST'])
 def post():
     try:
-        #validate_captcha()
+        validate_captcha()
         planilla = fetch_planilla()
         tp = request.form['tp'].upper()
         if tp not in planilla.entregas:
             raise Exception('La entrega {} es inválida'.format(tp))
+
         files = get_files()
+        if not files:
+            raise Exception('No se ha adjuntado ningún archivo con extensión válida.')
+
+        padron = request.form['padron']
+        docente = get_docente(planilla.correctores, padron, tp)
         grupo = ''
         body = request.form['body'] or ''
-        padrones = [request.form['padron']]
-        email_alumno = planilla.emails_alumnos[padrones[0]]
-        email_docente = ''
-        email = sendmail(email_alumno, email_docente, tp, grupo, padrones, files, body)
+        email_alumno = planilla.emails_alumnos[padron]
+        email_docente = planilla.emails_docentes[docente] if docente else None
+        email = sendmail(email_alumno, email_docente, tp, grupo, [padron], files, body)
 
         return render('result.html', {
             'sent': {
@@ -178,7 +183,7 @@ def post():
         })
     except Exception as e:
         print(traceback.format_exc())
-        err(e.message)
+        raise e
 
 
 def validate_captcha():

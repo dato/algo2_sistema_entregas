@@ -18,13 +18,13 @@ def fetch_sheet(ranges):
 def parse_datos_alumnos(datos_alumnos):
     # emails_alumnos = { <padron> => <email> }
     emails_alumnos = {}
-    NOMBRE = 0
     celdas = datos_alumnos.get_all_values()
+    NOMBRE = celdas[0].index('Alumno')
     PADRON = celdas[0].index('Padrón')
     EMAIL = celdas[0].index('Email')
     for row in celdas[1:]:
         if EMAIL < len(row) and row[PADRON] and '@' in row[EMAIL]:
-            emails_alumnos[row[PADRON]] = '{} <{}>'.format(row[NOMBRE], row[EMAIL])
+            emails_alumnos[row[PADRON]] = row[EMAIL]
     return emails_alumnos
 
 
@@ -54,8 +54,6 @@ def parse_notas(notas):
     emails_docentes = {}
 
     for row in celdas[1:]:
-        if PADRON >= len(row) or not row[PADRON]:
-            break
         # TODO: optimizar esto. No hace falta hacer iteraciones de más en
         # algoritmos II porque todos los alumnos tienen un corrector
         # individual y uno grupal (es decir: no varía según entrega).
@@ -63,9 +61,10 @@ def parse_notas(notas):
         for tp, tipo in ENTREGAS.items():
             email_docente = safely_get_column(row, DOCENTE_MAIL_INDIV)
             docente = safely_get_column(row, DOCENTE_INDIV)
-            if not '@' in email_docente:
-                continue
-            emails_docentes[docente] = '{} <{}>'.format(docente, email_docente)
+
+            if '@' in email_docente:
+                emails_docentes[docente] = email_docente
+
             if tipo == INDIVIDUAL:
                 correctores[padron][tp] = docente
             else:
