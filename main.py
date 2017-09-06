@@ -159,7 +159,7 @@ def post():
     try:
         validate_captcha()
         planilla = fetch_planilla()
-        tp = request.form['tp'].upper()
+        tp = request.form['tp']
         if tp not in planilla.entregas:
             raise Exception('La entrega {} es inválida'.format(tp))
 
@@ -173,7 +173,7 @@ def post():
         body = request.form['body'] or ''
         email_alumno = planilla.emails_alumnos[padron]
         email_docente = planilla.emails_docentes[docente] if docente else None
-        email = sendmail(email_alumno, email_docente, tp, grupo, [padron], files, body)
+        email = sendmail(email_alumno, email_docente, tp.upper(), grupo, [padron], files, body)
 
         return render('result.html', {
             'sent': {
