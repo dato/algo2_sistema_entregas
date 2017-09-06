@@ -19,7 +19,7 @@ Cada entrega quedará registrada.
     <div class="col-xs-4">
       <select class="form-control" name="tp" id="tp" value="">
         <option style="display:none" selected value></option>
-        {% for tp in entregas|sort %}
+        {% for tp in entregas|reverse %}
           <option value="{{tp}}">{{tp}}</option>
         {% endfor %}
       </select>

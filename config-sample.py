@@ -1,7 +1,11 @@
 # -*- coding: utf8 -*-
+from collections import OrderedDict
+
+GRUPAL = "g"
+INDIVIDUAL = "i"
 
 SPREADSHEET_ID = '...'
-ENTREGAS = ['EJ1', 'TP1', 'TP2', 'TP3']
+ENTREGAS = OrderedDict([('TP0', INDIVIDUAL), ('VD', INDIVIDUAL), ('Pila', INDIVIDUAL) ])
 SENDER_NAME = 'Entregas Algoritmos 1'
 EMAIL_TO = 'tps.7540rw@gmail.com'
 APP_TITLE = 'Algoritmos y Programación 1 - Entrega de TPs'
@@ -21,8 +25,5 @@ SERVICE_ACCOUNT_CREDENTIALS = {
 
 RECAPTCHA_SITE_ID = '...'
 RECAPTCHA_SECRET = '...'
-
-INDIVIDUAL = []
-GRUPAL = []
 
 TEST = False
