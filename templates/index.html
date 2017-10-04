@@ -26,12 +26,15 @@ Cada entrega quedará registrada.
     </div>
   </div>
   <div class="form-group" id="fg_padron">
-    <label for="padron" class="col-xs-2 control-label">Padrón:</label>
+    <label for="identificador" class="col-xs-2 control-label">Identificador:</label>
     <div class="col-xs-4">
       <div class="input-group">
-        <input type="text" class="form-control" name="padron" id="padron" value="" placeholder="Padrón">
+        <input type="text" class="form-control" name="identificador" id="identificador" value="" placeholder="Identificador">
         <span class="input-group-addon"></span>
       </div>
+      <p class="help-block">
+        Ingresar número de grupo para entregas grupales o padrón para entregas individuales.
+      </p>
     </div>
   </div>
   <div class="form-group" id="fg_adjuntos">
@@ -195,7 +198,7 @@ function validatePadron(tp) {
 
   if(!valid && padron in correctores) {
     // Aún no tiene un corrector asignado.
-    input.parent().find('span').html('<b>Padrón válido</b>');
+    input.parent().find('span').html('<b>Identificador válido</b>');
     input.parent().toggleClass('has-success', true);
     valid = true;
   }

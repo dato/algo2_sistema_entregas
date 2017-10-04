@@ -20,8 +20,8 @@ from flask import render_template
 from flask import request
 from werkzeug.utils import secure_filename
 
-from config import SENDER_NAME, EMAIL_TO, APP_TITLE, GRUPAL, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST, CLIENT_ID, \
-    CLIENT_SECRET, OAUTH_REFRESH_TOKEN
+from config import SENDER_NAME, EMAIL_TO, APP_TITLE, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST, CLIENT_ID, \
+    CLIENT_SECRET, OAUTH_REFRESH_TOKEN, GRUPAL, INDIVIDUAL
 from planilla import fetch_planilla
 
 app = Flask(__name__)
@@ -55,23 +55,6 @@ def render(name, params={}):
     }))
 
 
-def get_padrones_grupo_docente(padron_o_grupo, tp, planilla):
-    if padron_o_grupo not in planilla.correctores:
-        raise Exception('No se encuentra el alumno o grupo {}'.format(padron_o_grupo))
-    if planilla.entregas[tp] == GRUPAL:
-        if padron_o_grupo in planilla.grupos:
-            grupo = padron_o_grupo
-        else:
-            grupo = buscar_grupo(planilla.grupos, padron_o_grupo)
-        padrones = planilla.grupos[grupo]
-        docente = get_docente(planilla.correctores, grupo, tp)
-    else:
-        grupo = None
-        padrones = {padron_o_grupo}
-        docente = get_docente(planilla.correctores, padron_o_grupo, tp)
-    return padrones, grupo, docente
-
-
 def archivo_es_permitido(nombre):
     return '.' in nombre and \
            nombre.rsplit('.', 1)[1].lower() in EXTENSIONES_ACEPTADAS
@@ -86,17 +69,16 @@ def get_files():
     ]
 
 
-def sendmail(email_alumno, email_docente, tp, grupo, padrones, files, body):
+def sendmail(emails_alumno, email_docente, tp, padrones, files, body):
     correo = MIMEMultipart()
     correo["From"] = SENDER_NAME
     correo["To"] = EMAIL_TO
-    correo["Cc"] = ", ".join([email_alumno, email_docente]) if email_docente else email_alumno
+    correo["Cc"] = ", ".join(emails_alumno + [email_docente])
     correo["Subject"] = '{} - {}'.format(tp, ' - '.join(padrones))
 
     correo.attach(MIMEText('\n'.join([
             tp,
-            'GRUPO {}:'.format(grupo) if grupo else 'Entrega individual:',
-            '\n'.join([email_alumno]),
+            '\n'.join(emails_alumno),
             '\n{}\n'.format(body) if body else '',
             '-- ',
             '{} - {}'.format(APP_TITLE, request.url),
@@ -154,6 +136,30 @@ def get_oauth_credentials():
     return creds
 
 
+def get_padrones(planilla, padron_o_grupo):
+    if padron_o_grupo not in planilla.correctores:
+        raise Exception('No se encuentra el alumno o grupo {}'.format(padron_o_grupo))
+
+    # Es un grupo.
+    if padron_o_grupo in planilla.grupos:
+        return [padron for padron in planilla.grupos[padron_o_grupo]]
+
+    # Es un padrón.
+    return [padron_o_grupo]
+
+
+def validate_grupo(planilla, padron_o_grupo, tp):
+    if padron_o_grupo in planilla.grupos and planilla.entregas[tp] == INDIVIDUAL:
+        raise Exception("La entrega {} debe ser entregada de forma individual".format(tp))
+
+
+def get_emails_alumno(planilla, padron_o_grupo):
+    if padron_o_grupo in planilla.grupos:
+        return [planilla.emails_alumnos[alumno] for alumno in planilla.grupos[padron_o_grupo]]
+
+    return [planilla.emails_alumnos[padron_o_grupo]]
+
+
 @app.route('/', methods=['POST'])
 def post():
     try:
@@ -167,13 +173,18 @@ def post():
         if not files:
             raise Exception('No se ha adjuntado ningún archivo con extensión válida.')
 
-        padron = request.form['padron']
-        docente = get_docente(planilla.correctores, padron, tp)
-        grupo = ''
+        padron_o_grupo = request.form['padron']
+
+        # Valida si la entrega es individual o grupal de acuerdo a lo ingresado.
+        validate_grupo(planilla, padron_o_grupo, tp)
+
+        docente = get_docente(planilla.correctores, padron_o_grupo)
         body = request.form['body'] or ''
-        email_alumno = planilla.emails_alumnos[padron]
-        email_docente = planilla.emails_docentes[docente] if docente else None
-        email = sendmail(email_alumno, email_docente, tp.upper(), grupo, [padron], files, body)
+        email_docente = planilla.emails_docentes[docente]
+        emails_alumno = get_emails_alumno(planilla, padron_o_grupo)
+        padrones = get_padrones(planilla, padron_o_grupo)
+
+        email = sendmail(emails_alumno, email_docente, tp.upper(), padrones, files, body)
 
         return render('result.html', {
             'sent': {
@@ -201,14 +212,7 @@ def validate_captcha():
         raise Exception('Falló la validación del captcha')
 
 
-def buscar_grupo(grupos, padron):
-    for grupo, padrones in grupos.iteritems():
-        if padron in padrones:
-            return grupo
-    raise Exception('No se encuentra el grupo para el padron {}'.format(padron))
-
-
-def get_docente(correctores, padron_o_grupo, tp):
-    if tp not in correctores[padron_o_grupo]:
-        raise Exception('No hay un corrector asignado para la entrega {}'.format(tp))
-    return correctores[padron_o_grupo][tp]
+def get_docente(correctores, padron_o_grupo):
+    if padron_o_grupo not in correctores:
+        raise Exception('No hay un corrector asignado para el padrón o grupo {}'.format(padron_o_grupo))
+    return correctores[padron_o_grupo]

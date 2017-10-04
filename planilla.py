@@ -6,6 +6,7 @@ from config import SPREADSHEET_ID, ENTREGAS, SERVICE_ACCOUNT_CREDENTIALS, GRUPAL
 SCOPE = ['https://spreadsheets.google.com/feeds']
 SHEET_NOTAS = 'Notas'
 SHEET_DATOS_ALUMNOS = 'DatosAlumnos'
+SHEET_DATOS_DOCENTES = 'DatosDocentes'
 
 
 def fetch_sheet(ranges):
@@ -19,12 +20,13 @@ def parse_datos_alumnos(datos_alumnos):
     # emails_alumnos = { <padron> => <email> }
     emails_alumnos = {}
     celdas = datos_alumnos.get_all_values()
-    NOMBRE = celdas[0].index('Alumno')
     PADRON = celdas[0].index('Padrón')
     EMAIL = celdas[0].index('Email')
     for row in celdas[1:]:
-        if EMAIL < len(row) and row[PADRON] and '@' in row[EMAIL]:
-            emails_alumnos[row[PADRON]] = row[EMAIL]
+        email_alumno = safely_get_column(row, EMAIL)
+        if email_alumno and '@' in email_alumno:
+            emails_alumnos[row[PADRON]] = email_alumno
+
     return emails_alumnos
 
 
@@ -38,44 +40,48 @@ def parse_notas(notas):
     
     PADRON = headers.index('Padrón')
     DOCENTE_INDIV = headers.index('Ayudante')
-    DOCENTE_MAIL_INDIV = headers.index('Email')
     DOCENTE_GRUP = headers.index('Ayudante grupo')
-    DOCENTE_MAIL_GRUP = headers.index('Mail ayudante grupo')
     NRO_GRUPO = headers.index('Nro Grupo')
-    COMPA = headers.index('Nombre compañero')
-    PADRON_COMPA = headers.index('Padrón compañero')
-    MAIL_COMPA = headers.index('Mail compañero grupo')
 
-    # correctores = { <padron o grupo> => { <tp> => <nombre docente> } }
-    correctores = defaultdict(dict)
+    # correctores = { <padron o grupo> => <nombre ayudante> }
+    correctores = {}
     # grupos = { <grupo> => set(<padron>, ...) }
     grupos = defaultdict(set)
+
+    for row in celdas[1:]:
+        # Información de las entregas individuales.
+        padron = row[PADRON]
+        docente = safely_get_column(row, DOCENTE_INDIV)
+        correctores[padron] = docente
+
+        # Información de las entregas grupales.
+        grupo = safely_get_column(row, NRO_GRUPO)
+        if grupo:
+            correctores[grupo] = safely_get_column(row, DOCENTE_GRUP)
+            grupos[grupo].add(padron)
+
+    return correctores, grupos
+
+
+def parse_datos_docentes(docentes):
+    celdas = docentes.get_all_values()
+
+    # El header de los docentes está en la fila 3
+    headers = celdas[2]
+
+    DOCENTE = headers.index('Nombre')
+    MAIL = headers.index('Mail')
+
     # emails_docentes = { <nombre docente> => <email> }
     emails_docentes = {}
 
     for row in celdas[1:]:
-        # TODO: optimizar esto. No hace falta hacer iteraciones de más en
-        # algoritmos II porque todos los alumnos tienen un corrector
-        # individual y uno grupal (es decir: no varía según entrega).
-        padron = row[PADRON]
-        for tp, tipo in ENTREGAS.items():
-            email_docente = safely_get_column(row, DOCENTE_MAIL_INDIV)
-            docente = safely_get_column(row, DOCENTE_INDIV)
+        docente = safely_get_column(row, DOCENTE)
+        email_docente = safely_get_column(row, MAIL)
+        emails_docentes[docente] = email_docente
 
-            if '@' in email_docente:
-                emails_docentes[docente] = email_docente
+    return emails_docentes
 
-            if tipo == INDIVIDUAL:
-                correctores[padron][tp] = docente
-            else:
-                grupo = safely_get_column(row, NRO_GRUPO)
-                padron_compa = safely_get_column(row, PADRON_COMPA)
-                email_compa = safely_get_column(row, MAIL_COMPA)
-                correctores[grupo][tp] = docente
-                grupos[grupo].add(padron)
-                if email_compa and '@' in email_compa:
-                    grupos[grupo].add(padron_compa)
-    return correctores, grupos, emails_docentes
 
 Planilla = namedtuple('Planilla', [
     'correctores',
@@ -87,9 +93,10 @@ Planilla = namedtuple('Planilla', [
 
 
 def fetch_planilla():
-    notas, datos_alumnos = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS])
+    notas, datos_alumnos, datos_docentes = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS, SHEET_DATOS_DOCENTES])
     emails_alumnos = parse_datos_alumnos(datos_alumnos)
-    correctores, grupos, emails_docentes = parse_notas(notas)
+    emails_docentes = parse_datos_docentes(datos_docentes)
+    correctores, grupos = parse_notas(notas)
     return Planilla(
         correctores,
         grupos,
