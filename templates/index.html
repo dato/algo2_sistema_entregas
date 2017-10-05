@@ -25,7 +25,7 @@ Cada entrega quedará registrada.
       </select>
     </div>
   </div>
-  <div class="form-group" id="fg_padron">
+  <div class="form-group" id="fg_identificador">
     <label for="identificador" class="col-xs-2 control-label">Identificador:</label>
     <div class="col-xs-4">
       <div class="input-group">
@@ -33,7 +33,6 @@ Cada entrega quedará registrada.
         <span class="input-group-addon"></span>
       </div>
       <p class="help-block">
-        Ingresar número de grupo para entregas grupales o padrón para entregas individuales.
       </p>
     </div>
   </div>
@@ -74,7 +73,7 @@ Cada entrega quedará registrada.
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
-  $('#padron').on('input', validate);
+  $('#identificador').on('input', validate);
 
   addFileInput();
   $('#add_file').on('click', addFileInput);
@@ -160,36 +159,33 @@ function validateTP() {
   }
 
   if (entregas[tp] === 'i') { // individual
-    $('#fg_padron label').html('Padrón:');
-    $('#fg_padron .help-block').html('Número de padrón:');
-    $('#padron').attr('placeholder', 'Padrón');
+    $('#fg_identificador label').html('Padrón:');
+    $('#fg_identificador .help-block').html('Número de padrón:');
+    $('#identificador').attr('placeholder', 'Padrón');
   } else { // grupal
-    $('#fg_padron label').html('Padrón o grupo:');
-    $('#fg_padron .help-block').html('Número de padrón de algún integrante o identificador del grupo (ejemplo: "G04"):');
-    $('#padron').attr('placeholder', 'Padrón o grupo');
+    $('#fg_identificador label').html('Padrón o grupo:');
+    $('#fg_identificador .help-block').html('Número de padrón o identificador del grupo (ejemplo: "G04"):');
+    $('#identificador').attr('placeholder', 'Padrón o número de grupo');
   }
 
   return tp;
 }
 
 function validatePadron(tp) {
-  var input = $('#padron');
+  var input = $('#identificador');
   var padron = validateAlNum(input);
 
   if(!padron) {
+    input.parent().find('span').html('');
+    input.parent().toggleClass('has-success', false);
     return false;
   }
 
   var valid = false;
   var corrector = null;
-  if (entregas[tp] === 'g') { // grupal
-    if (grupos[padron]) {
-      padron = grupos[padron];
-    }
-  }
 
-  if (padron in correctores && correctores[padron][tp]) {
-    corrector = correctores[padron][tp];
+  if (padron in correctores && correctores[padron]) {
+    corrector = correctores[padron];
     valid = true;
   }
 
@@ -220,7 +216,7 @@ function validateAlNum(el) {
   if (el.length === 0) {
     return false;
   }
-  var value = el.val().trim().toUpperCase();
+  var value = el.val().trim();
   var valid = /^[\d\w]+$/.test(value);
   return valid ? value : false;
 }
