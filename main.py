@@ -173,7 +173,7 @@ def post():
         if not files:
             raise Exception('No se ha adjuntado ningún archivo con extensión válida.')
 
-        padron_o_grupo = request.form['padron']
+        padron_o_grupo = request.form['identificador']
 
         # Valida si la entrega es individual o grupal de acuerdo a lo ingresado.
         validate_grupo(planilla, padron_o_grupo, tp)
