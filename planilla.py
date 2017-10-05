@@ -23,9 +23,13 @@ def parse_datos_alumnos(datos_alumnos):
     PADRON = celdas[0].index('Padrón')
     EMAIL = celdas[0].index('Email')
     for row in celdas[1:]:
+        padron = safely_get_column(row, PADRON)
+        if not padron:
+            continue
+
         email_alumno = safely_get_column(row, EMAIL)
         if email_alumno and '@' in email_alumno:
-            emails_alumnos[row[PADRON]] = email_alumno
+            emails_alumnos[padron] = email_alumno
 
     return emails_alumnos
 
@@ -51,8 +55,10 @@ def parse_notas(notas):
     for row in celdas[1:]:
         # Información de las entregas individuales.
         padron = row[PADRON]
-        docente = safely_get_column(row, DOCENTE_INDIV)
-        correctores[padron] = docente
+        if not padron:
+            continue
+
+        correctores[padron] = safely_get_column(row, DOCENTE_INDIV)
 
         # Información de las entregas grupales.
         grupo = safely_get_column(row, NRO_GRUPO)
