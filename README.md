@@ -21,3 +21,11 @@ Pequeña aplicación web para que los alumnos hagan las entregas de TPs.
 
     - `source bin/activate`
     - `FLASK_APP=main.py flask run`
+
+## Habilitar una entrega
+
+- Para habilitar una entrega:
+
+	- Abrir `config.py` en `/srv/apps/entregas/repo/`
+	- Descomentar la entrega que queremos habilitar
+	- Reiniciar la app con `touch entregas2.ini` en `/srv/apps/entregas/`
