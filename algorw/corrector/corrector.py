@@ -26,7 +26,7 @@ Salida:
 
   - se guarda una copia de los archivos en DATA_DIR/<TP_ID>/<YYYY_CX>/<PADRON>.
 """
-
+import ai_corrector
 import base64
 import datetime
 import email
@@ -152,7 +152,7 @@ def procesar_entrega(msg):
   retcode = worker.wait()
 
   if retcode == 0:
-    send_reply(msg, output + "\n\n" +
+    send_reply(msg, ai_corrector.vida_corrector(tp_id) + output + "\n\n" +
                "-- \nURL de esta entrega (para uso docente):\n" + moss.url())
   else:
     raise ErrorInterno(output)
