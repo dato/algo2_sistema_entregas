@@ -178,7 +178,7 @@ def post():
         # Valida si la entrega es individual o grupal de acuerdo a lo ingresado.
         validate_grupo(planilla, padron_o_grupo, tp)
 
-        docente = get_docente(planilla.correctores, padron_o_grupo)
+        docente = get_docente(planilla.correctores, padron_o_grupo, planilla, tp)
         body = request.form['body'] or ''
         email_docente = planilla.emails_docentes[docente]
         emails_alumno = get_emails_alumno(planilla, padron_o_grupo)
@@ -212,7 +212,18 @@ def validate_captcha():
         raise Exception('Falló la validación del captcha')
 
 
-def get_docente(correctores, padron_o_grupo):
+def get_docente(correctores, padron_o_grupo, planilla, tp):
     if padron_o_grupo not in correctores:
         raise Exception('No hay un corrector asignado para el padrón o grupo {}'.format(padron_o_grupo))
-    return correctores[padron_o_grupo]
+
+    if padron_o_grupo in planilla.grupos or planilla.entregas[tp] != GRUPAL:
+        return correctores[padron_o_grupo]
+
+    # Es un alumno entregando de forma individual una entrega grupal,
+    # por el motivo que fuere.
+    # Buscamos su corrector de trabajos grupales. 
+    padron = padron_o_grupo
+    for grupo in planilla.grupos:
+        if padron in planilla.grupos[grupo]:
+            return correctores[grupo]
+        
