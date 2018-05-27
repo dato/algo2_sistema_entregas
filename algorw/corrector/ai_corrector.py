@@ -14,7 +14,7 @@ def movie_generation():
 FRASES_CORRECTOR = [
   lambda entrega: "El corrector estaba durmiendo..",
   lambda entrega: f"Hola, si estás ahora haciendo una entrega de {entrega}, te recomiendo que mejor veas " + movie_generation(),
-  lambda entrega: "La vida social un viernes a la noche tambien es importante para la salud",
+  lambda entrega: "La vida social un viernes/sabado a la noche tambien es importante para la salud",
   lambda entrega: "Se derramo cerveza sobre el servidor, esperemos que no afecte las pruebas",
   lambda entrega: "El corrector está de juerga a estas horas. Cualquier resultado de la ejecución de pruebas no puede tomarse seriamente",
   lambda entrega: f"Andá a dormir, mañana tenés todo el día para seguir mandando {entrega}s",
@@ -35,7 +35,7 @@ def vida_corrector(entrega):
   if (localtime.tm_wday == FRIDAY and localtime.tm_hour >= LIMIT_HOUR) or \
     (localtime.tm_wday == SATURDAY and localtime.tm_hour <= MINIMUM_HOUR) or \
     (localtime.tm_wday == SATURDAY and localtime.tm_hour >= LIMIT_HOUR) or \
-    (localtime.tm_day == SUNDAY and localtime.tm_hour <= MINIMUM_HOUR):
+    (localtime.tm_wday == SUNDAY and localtime.tm_hour <= MINIMUM_HOUR):
     return random.choice(FRASES_CORRECTOR)(entrega) + "\n\n"
   elif localtime.tm_hour >= LIMIT_HOUR or localtime.tm_hour <= MINIMUM_HOUR:
     return "Recordá que dormir es muy importante para la salud\n\n"
