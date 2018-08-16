@@ -144,12 +144,14 @@ def procesar_entrega(msg):
     moss.save_data(path, zip_obj.read(zip_info))
     tar.addfile(info, zip_obj.open(zip_info.filename))
 
-  moss.flush()
   tar.close()
-
+  
   stdout, _ = worker.communicate()
   output = stdout.decode("utf-8")
   retcode = worker.wait()
+
+  moss.save_output(output)
+  moss.flush()
 
   if retcode == 0:
     send_reply(msg, ai_corrector.vida_corrector(tp_id) + output + "\n\n" +
@@ -316,6 +318,13 @@ class Moss:
 
   def _git(self, args):
     subprocess.call(["git"] + args, cwd=self._dest)
+
+  def save_output(self, output):
+    filepath = self._dest / 'README.md'
+    with open(filepath,'w') as f:
+      f.write(output.replace('\n', '\n\n'))
+    return self._git(["add", filepath]) == 0
+
 
 
 def zip_datetime(info):
