@@ -151,6 +151,7 @@ def procesar_entrega(msg):
   retcode = worker.wait()
 
   moss.save_output(output)
+  moss.commit_emoji(output)
   moss.flush()
 
   if retcode == 0:
@@ -325,7 +326,11 @@ class Moss:
       f.write('```\n'+output+'```')
     return self._git(["add", filepath]) == 0
 
-
+  def commit_emoji(self, output):
+    emoji = ':x: '
+    resultado = output.split('\n')[0]
+    if 'Todo OK' in resultado: emoji = ':heavy_check_mark: '
+    self._commit_message = emoji + self._commit_message
 
 def zip_datetime(info):
   """Gets a datetime.datetime from a ZipInfo object.
