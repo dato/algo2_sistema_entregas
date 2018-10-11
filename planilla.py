@@ -18,10 +18,11 @@ def fetch_sheet(ranges):
 
 def parse_datos_alumnos(datos_alumnos):
     # emails_alumnos = { <padron> => <email> }
-    emails_alumnos = {}
+    emails_alumnos,nombres_alumnos = {},{}
     celdas = datos_alumnos.get_all_values()
     PADRON = celdas[0].index('Padrón')
     EMAIL = celdas[0].index('Email')
+    NOMBRE = celdas[0].index('Alumno')
     for row in celdas[1:]:
         padron = safely_get_column(row, PADRON)
         if not padron:
@@ -31,7 +32,11 @@ def parse_datos_alumnos(datos_alumnos):
         if email_alumno and '@' in email_alumno:
             emails_alumnos[padron] = email_alumno
 
-    return emails_alumnos
+        nombre_alumno = safely_get_column(row, NOMBRE)
+        if nombre_alumno:
+            nombres_alumnos[padron] = nombre_alumno
+
+    return emails_alumnos,nombres_alumnos
 
 
 def safely_get_column(row, col_number):
@@ -93,20 +98,22 @@ Planilla = namedtuple('Planilla', [
     'correctores',
     'grupos',
     'emails_alumnos',
+    'nombres_alumnos',
     'emails_docentes',
-    'entregas',
+    'entregas'
 ])
 
 
 def fetch_planilla():
     notas, datos_alumnos, datos_docentes = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS, SHEET_DATOS_DOCENTES])
-    emails_alumnos = parse_datos_alumnos(datos_alumnos)
+    emails_alumnos,nombres_alumnos = parse_datos_alumnos(datos_alumnos)
     emails_docentes = parse_datos_docentes(datos_docentes)
     correctores, grupos = parse_notas(notas)
     return Planilla(
         correctores,
         grupos,
         emails_alumnos,
+        nombres_alumnos,
         emails_docentes,
         ENTREGAS,
     )

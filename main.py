@@ -69,12 +69,12 @@ def get_files():
     ]
 
 
-def sendmail(emails_alumno, email_docente, tp, padrones, files, body):
+def sendmail(emails_alumno, nombres_alumnos,email_docente, tp, padrones, files, body):
     correo = MIMEMultipart()
     correo["From"] = SENDER_NAME
     correo["To"] = EMAIL_TO
     correo["Cc"] = ", ".join(emails_alumno + [email_docente])
-    correo["Subject"] = '{} - {}'.format(tp, ' - '.join(padrones))
+    correo["Subject"] = '{} - {} - {}'.format(tp, ', '.join(padrones), ', '.join(nombres_alumnos))
 
     correo.attach(MIMEText('\n'.join([
             tp,
@@ -159,6 +159,13 @@ def get_emails_alumno(planilla, padron_o_grupo):
 
     return [planilla.emails_alumnos[padron_o_grupo]]
 
+def get_nombres_alumnos(planilla, padron_o_grupo):
+    if padron_o_grupo in planilla.grupos:
+        nombres_alumnos = [planilla.nombres_alumnos[alumno] for alumno in planilla.grupos[padron_o_grupo]]
+        return [nombre.split(',')[0].capitalize() for nombre in nombres_alumnos]
+
+    return [planilla.nombres_alumnos[padron_o_grupo].split(',')[0].capitalize()]
+
 
 @app.route('/', methods=['POST'])
 def post():
@@ -182,9 +189,10 @@ def post():
         body = request.form['body'] or ''
         email_docente = planilla.emails_docentes[docente]
         emails_alumno = get_emails_alumno(planilla, padron_o_grupo)
+        nombres_alumnos = get_nombres_alumnos(planilla, padron_o_grupo)
         padrones = get_padrones(planilla, padron_o_grupo)
 
-        email = sendmail(emails_alumno, email_docente, tp.upper(), padrones, files, body)
+        email = sendmail(emails_alumno,nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
 
         return render('result.html', {
             'sent': {
