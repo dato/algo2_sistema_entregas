@@ -30,7 +30,7 @@ def parse_datos_alumnos(datos_alumnos):
 
         email_alumno = safely_get_column(row, EMAIL)
         if email_alumno and '@' in email_alumno:
-            emails_alumnos[padron] = email_alumno.trim()
+            emails_alumnos[padron] = email_alumno
 
         nombre_alumno = safely_get_column(row, NOMBRE)
         if nombre_alumno:
