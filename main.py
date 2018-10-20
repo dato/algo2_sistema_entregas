@@ -162,7 +162,7 @@ def get_emails_alumno(planilla, padron_o_grupo):
 def get_nombres_alumnos(planilla, padron_o_grupo):
     if padron_o_grupo in planilla.grupos:
         nombres_alumnos = [planilla.nombres_alumnos[alumno] for alumno in planilla.grupos[padron_o_grupo]]
-        return [nombre.split(',')[0].capitalize() for nombre in nombres_alumnos]
+        return [nombre.split(',')[0].title() for nombre in nombres_alumnos]
 
     return [planilla.nombres_alumnos[padron_o_grupo].split(',')[0].capitalize()]
 
