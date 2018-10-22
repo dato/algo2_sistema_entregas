@@ -72,8 +72,10 @@ def get_files():
 def sendmail(emails_alumno, nombres_alumnos,email_docente, tp, padrones, files, body):
     correo = MIMEMultipart()
     correo["From"] = SENDER_NAME
-    correo["To"] = EMAIL_TO
-    correo["Cc"] = ", ".join(emails_alumno + [email_docente])
+    correo["To"] = ", ".join(emails_alumno)
+    correo["Cc"] = email_docente
+    correo["Bcc"] = EMAIL_TO
+    correo["Reply-To"] = correo["To"]  # Responder a los alumnos
     correo["Subject"] = '{} - {} - {}'.format(tp, ', '.join(padrones), ', '.join(nombres_alumnos))
 
     correo.attach(MIMEText('\n'.join([
