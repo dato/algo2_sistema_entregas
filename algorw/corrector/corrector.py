@@ -335,8 +335,10 @@ def send_reply(orig_msg, reply_text):
   reply.set_payload(reply_text, "utf-8")
 
   reply["From"] = GMAIL_ACCOUNT
-  reply["To"] = orig_msg.get("Cc", "")
+  reply["To"] = orig_msg["To"]
+  reply["Cc"] = orig_msg.get("Cc", "")
   reply["Subject"] = "Re: " + orig_msg["Subject"]
+  reply["Reply-To"] = orig_msg.get("Reply-To", "")
   reply["In-Reply-To"] = orig_msg["Message-ID"]
 
   creds = get_oauth_credentials()
