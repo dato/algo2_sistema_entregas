@@ -113,8 +113,9 @@ def procesar_entrega(msg):
     sys.stderr.write("Ignorando email de {}\n".format(addr_from))
     return
 
-  tp_id = guess_tp(msg["Subject"])
-  padron = get_padron_str(msg["Subject"])
+  subj = msg["Subject"]
+  tp_id = guess_tp(subj)
+  padron = get_padron_str(subj)
   zip_obj = find_zip(msg)
   skel_dir = SKEL_DIR / tp_id
 
@@ -150,7 +151,7 @@ def procesar_entrega(msg):
   output = stdout.decode("utf-8")
   retcode = worker.wait()
 
-  moss.save_output(output)
+  moss.save_output(f"{subj}\n\n{output}")
   moss.commit_emoji(output)
   moss.flush()
 
