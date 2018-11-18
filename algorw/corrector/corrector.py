@@ -145,7 +145,7 @@ def procesar_entrega(msg):
     tar.addfile(info, zip_obj.open(zip_info.filename))
 
   tar.close()
-  
+
   stdout, _ = worker.communicate()
   output = stdout.decode("utf-8")
   retcode = worker.wait()
@@ -321,15 +321,15 @@ class Moss:
     subprocess.call(["git"] + args, cwd=self._dest)
 
   def save_output(self, output):
-    filepath = self._dest / 'README.md'
-    with open(filepath,'w') as f:
-      f.write('```\n'+output+'```')
+    filepath = self._dest / "README.md"
+    with open(filepath,"w") as f:
+      f.write("```\n"+output+"```")
     return self._git(["add", filepath]) == 0
 
   def commit_emoji(self, output):
-    emoji = ':x: '
-    resultado = output.split('\n')[0]
-    if 'Todo OK' in resultado: emoji = ':heavy_check_mark: '
+    emoji = ":x: "
+    resultado = output.split("\n")[0]
+    if "Todo OK" in resultado: emoji = ":heavy_check_mark: "
     self._commit_message = emoji + self._commit_message
 
 def zip_datetime(info):
