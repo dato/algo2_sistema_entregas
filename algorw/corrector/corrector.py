@@ -323,7 +323,7 @@ class Moss:
 
   def save_output(self, output):
     filepath = self._dest / "README.md"
-    filepath.write_bytes(f"```\n{output}```")
+    filepath.write_text(f"```\n{output}```")
     return self._git(["add", filepath]) == 0
 
   def commit_emoji(self, output):
