@@ -18,7 +18,7 @@ def fetch_sheet(ranges):
 
 def parse_datos_alumnos(datos_alumnos):
     # emails_alumnos = { <padron> => <email> }
-    emails_alumnos,nombres_alumnos = {},{}
+    emails_alumnos, nombres_alumnos = {}, {}
     celdas = datos_alumnos.get_all_values()
     PADRON = celdas[0].index('Padrón')
     EMAIL = celdas[0].index('Email')
@@ -36,7 +36,7 @@ def parse_datos_alumnos(datos_alumnos):
         if nombre_alumno:
             nombres_alumnos[padron] = nombre_alumno
 
-    return emails_alumnos,nombres_alumnos
+    return emails_alumnos, nombres_alumnos
 
 
 def safely_get_column(row, col_number):
@@ -46,7 +46,7 @@ def safely_get_column(row, col_number):
 def parse_notas(notas):
     celdas = notas.get_all_values()
     headers = celdas[0]
-    
+
     PADRON = headers.index('Padrón')
     DOCENTE_INDIV = headers.index('Ayudante')
     DOCENTE_GRUP = headers.index('Ayudante grupo')
@@ -72,7 +72,8 @@ def parse_notas(notas):
             grupos[grupo].add(padron)
 
         # Información de las entregas grupales como alumnos individualmente.
-        padron = GRUPAL + padron        
+        # Usado solo por Javascript en las validaciones en el navegador.
+        padron = GRUPAL + padron
         correctores[padron] = safely_get_column(row, DOCENTE_GRUP)
 
     return correctores, grupos

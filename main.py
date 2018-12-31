@@ -154,20 +154,11 @@ def validate_grupo(planilla, padron_o_grupo, tp):
     if padron_o_grupo in planilla.grupos and planilla.entregas[tp] == INDIVIDUAL:
         raise Exception("La entrega {} debe ser entregada de forma individual".format(tp))
 
+def get_emails_alumno(planilla, padrones):
+    return [planilla.emails_alumnos[p] for p in padrones]
 
-def get_emails_alumno(planilla, padron_o_grupo):
-    if padron_o_grupo in planilla.grupos:
-        return [planilla.emails_alumnos[alumno] for alumno in planilla.grupos[padron_o_grupo]]
-
-    return [planilla.emails_alumnos[padron_o_grupo]]
-
-def get_nombres_alumnos(planilla, padron_o_grupo):
-    if padron_o_grupo in planilla.grupos:
-        nombres_alumnos = [planilla.nombres_alumnos[alumno] for alumno in planilla.grupos[padron_o_grupo]]
-        return [nombre.split(',')[0].title() for nombre in nombres_alumnos]
-
-    return [planilla.nombres_alumnos[padron_o_grupo].split(',')[0].title()]
-
+def get_nombres_alumnos(planilla, padrones):
+    return [planilla.nombres_alumnos[p].split(',')[0].title() for p in padrones]
 
 @app.route('/', methods=['POST'])
 def post():
@@ -190,11 +181,11 @@ def post():
         docente = get_docente(planilla.correctores, padron_o_grupo, planilla, tp)
         body = request.form['body'] or ''
         email_docente = planilla.emails_docentes[docente]
-        emails_alumno = get_emails_alumno(planilla, padron_o_grupo)
-        nombres_alumnos = get_nombres_alumnos(planilla, padron_o_grupo)
         padrones = get_padrones(planilla, padron_o_grupo)
+        emails_alumno = get_emails_alumno(planilla, padrones)
+        nombres_alumnos = get_nombres_alumnos(planilla, padrones)
 
-        email = sendmail(emails_alumno,nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
+        email = sendmail(emails_alumno, nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
 
         return render('result.html', {
             'sent': {
@@ -231,9 +222,8 @@ def get_docente(correctores, padron_o_grupo, planilla, tp):
 
     # Es un alumno entregando de forma individual una entrega grupal,
     # por el motivo que fuere.
-    # Buscamos su corrector de trabajos grupales. 
+    # Buscamos su corrector de trabajos grupales.
     padron = padron_o_grupo
     for grupo in planilla.grupos:
         if padron in planilla.grupos[grupo]:
             return correctores[grupo]
-        
