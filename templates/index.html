@@ -160,11 +160,11 @@ function validateTP() {
 
   if (entregas[tp] === 'i') { // individual
     $('#fg_identificador label').html('Padrón:');
-    $('#fg_identificador .help-block').html('Número de padrón:');
+    $('#fg_identificador .help-block').html('Número de padrón');
     $('#identificador').attr('placeholder', 'Padrón');
   } else { // grupal
     $('#fg_identificador label').html('Padrón o grupo:');
-    $('#fg_identificador .help-block').html('Número de padrón o identificador del grupo (ejemplo: "G04"):');
+    $('#fg_identificador .help-block').html('Número de padrón o identificador del grupo (ejemplo: "G04")');
     $('#identificador').attr('placeholder', 'Padrón o número de grupo');
   }
 
