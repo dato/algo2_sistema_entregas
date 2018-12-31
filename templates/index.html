@@ -184,6 +184,12 @@ function validatePadron(tp) {
   var valid = false;
   var corrector = null;
 
+  // Si la entrega es grupal, pero el identificador no es un grupo, el alumno entrega solo.
+  // Se corrige el padron para incluir 'g', y que el corrector que se muestre sea el correcto.
+  if (entregas[tp] === 'g' && !(padron.includes('G')) ){
+    padron = 'g' + padron
+  }
+
   if (padron in correctores && correctores[padron]) {
     corrector = correctores[padron];
     valid = true;

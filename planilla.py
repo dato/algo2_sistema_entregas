@@ -71,6 +71,10 @@ def parse_notas(notas):
             correctores[grupo] = safely_get_column(row, DOCENTE_GRUP)
             grupos[grupo].add(padron)
 
+        # Información de las entregas grupales como alumnos individualmente.
+        padron = GRUPAL + padron        
+        correctores[padron] = safely_get_column(row, DOCENTE_GRUP)
+
     return correctores, grupos
 
 
