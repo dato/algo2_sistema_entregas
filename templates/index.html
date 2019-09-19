@@ -37,13 +37,10 @@ Cada entrega quedará registrada.
     </div>
   </div>
   <div class="form-group" id="fg_adjuntos">
-    <label for="file0" class="col-xs-2 control-label">Adjuntos:</label>
+    <label for="file0" class="col-xs-2 control-label">Adjunto:</label>
     <div class="col-xs-4">
       <div id="files">
       </div>
-      <button type="button" class="btn btn-default btn-xs btn-block" id="add_file" aria-label="Agregar adjunto">
-        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
-      </button>
       <p class="help-block">
         Formatos aceptados: <code>.zip</code>
       </p>
@@ -76,8 +73,6 @@ document.addEventListener("DOMContentLoaded", function() {
   $('#identificador').on('input', validate);
 
   addFileInput();
-  $('#add_file').on('click', addFileInput);
-  $(document).on('click', '.rm_file', rmFileInput);
 });
 
 var correctores = JSON.parse('{{correctores_json|safe}}');
@@ -105,11 +100,6 @@ function addFileInput() {
         '</span>',
       '</label>',
       '<input type="text" class="form-control filename" readonly>',
-      '<span class="input-group-btn">',
-        '<button class="btn btn-default rm_file" type="button">',
-          '<span class="glyphicon glyphicon-trash" aria-hidden="true"></span>',
-        '</button>',
-      '</span>',
     '</div>'
   ].join(''));
   $('#files').append(inputGroup);
