@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3
 
 """Script principal del corrector automático de Algoritmos II.
 
