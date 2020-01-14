@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 from collections import OrderedDict
 
 GRUPAL = "g"
