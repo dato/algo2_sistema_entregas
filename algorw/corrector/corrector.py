@@ -28,7 +28,6 @@ Salida:
 """
 
 import ai_corrector
-import base64
 import datetime
 import email
 import email.message
@@ -39,19 +38,17 @@ import os
 import pathlib
 import re
 import shutil
-import smtplib
 import subprocess
 import sys
 import tarfile
 import zipfile
 
-import httplib2  # type: ignore
-import oauth2client.client  # type: ignore
-
 from github import GithubException
 
 from alu_repos import AluRepo
 from config import Settings, load_config
+
+from .. import utils
 
 
 ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
@@ -65,12 +62,6 @@ PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
 
-CLIENT_ID = os.environ.get("CORRECTOR_OAUTH_CLIENT")
-CLIENT_SECRET = os.environ.get("CORRECTOR_OAUTH_SECRET")
-
-# Si OAUTH_REFRESH_TOKEN no está definido, el mail se imprime por pantalla y no
-# se envía.
-OAUTH_REFRESH_TOKEN = os.environ.get("CORRECTOR_REFRESH_TOKEN")
 
 # Archivos que no aceptamos en las entregas.
 FORBIDDEN_EXTENSIONS = {
@@ -398,6 +389,7 @@ def send_reply(orig_msg, reply_text):
         print("ENVIARÍA: {}".format(reply_text), file=sys.stderr)
         return
 
+    creds = utils.get_oauth_credentials(cfg)
     reply = email.message.Message(email.policy.default)
     reply.set_payload(reply_text, "utf-8")
 
@@ -408,38 +400,7 @@ def send_reply(orig_msg, reply_text):
     reply["Reply-To"] = orig_msg.get("Reply-To", "")
     reply["In-Reply-To"] = orig_msg["Message-ID"]
 
-    creds = get_oauth_credentials()
-    xoauth2_tok = f"user={cfg.sender.email}\1" f"auth=Bearer {creds.access_token}\1\1"
-    xoauth2_b64 = base64.b64encode(xoauth2_tok.encode("ascii")).decode("ascii")
-
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.ehlo()
-    server.starttls()
-    server.ehlo()  # Se necesita EHLO de nuevo tras STARTTLS.
-    server.docmd("AUTH", "XOAUTH2 " + xoauth2_b64)
-    server.send_message(reply)
-    server.close()
-
-
-def get_oauth_credentials():
-    """Refresca y devuelve nuestras credenciales OAuth.
-    """
-    # N.B.: siempre re-generamos el token de acceso porque este script es
-    # stateless y no guarda las credenciales en ningún sitio. Todo bien con eso
-    # mientras no alcancemos el límite de refresh() de Google (pero no publican
-    # cuál es).
-    creds = oauth2client.client.OAuth2Credentials(
-        "",
-        CLIENT_ID,
-        CLIENT_SECRET,
-        OAUTH_REFRESH_TOKEN,
-        datetime.datetime(2015, 1, 1),
-        "https://accounts.google.com/o/oauth2/token",
-        "corrector/1.0",
-    )
-
-    creds.refresh(httplib2.Http())
-    return creds
+    return utils.sendmail(reply, creds)
 
 
 if __name__ == "__main__":

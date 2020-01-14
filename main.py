@@ -1,9 +1,7 @@
-import base64
 import collections
 import io
 import logging
 import mimetypes
-import smtplib
 import zipfile
 
 from email import encoders
@@ -17,11 +15,10 @@ import requests
 
 from flask import Flask, render_template, request
 from flask_caching import Cache  # type: ignore
-from google.auth.transport.requests import Request  # type: ignore
-from google.oauth2 import credentials  # type: ignore
 from werkzeug.exceptions import FailedDependency, HTTPException
 from werkzeug.utils import secure_filename
 
+from algorw import utils
 from algorw.app.queue import task_queue
 from algorw.app.tasks import EntregaTask, reload_fetchmail
 from algorw.models import Alumne, Docente
@@ -161,24 +158,16 @@ def sendmail(
         correo.attach(msg)
 
     if not cfg.test:
-        creds = get_oauth_credentials()
-        xoauth2_tok = f"user={cfg.sender.email}\1" f"auth=Bearer {creds.token}\1\1"
-        xoauth2_b64 = base64.b64encode(xoauth2_tok.encode("ascii")).decode("ascii")
-
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.ehlo()
-        server.starttls()
-        server.ehlo()  # Se necesita EHLO de nuevo tras STARTTLS.
-        server.docmd("AUTH", "XOAUTH2 " + xoauth2_b64)
-        server.send_message(correo)
-        server.close()
+        # TODO: en lugar de enviar un mail, que es lento, hacer un commit en la
+        # copia local de algo2_entregas.
+        utils.sendmail(correo, oauth_credentials())
 
     task_queue.enqueue(reload_fetchmail, EntregaTask(subject=subject_text))
     return correo
 
 
-def get_oauth_credentials():
-    """Devuelve nuestras credenciales OAuth.
+def oauth_credentials():
+    """Caché de las credenciales OAuth.
     """
     key = "oauth2_credentials"
     creds = cache.get(key)
@@ -190,18 +179,7 @@ def get_oauth_credentials():
     else:
         return creds
 
-    # Siempre creamos un nuevo objeto Credentials() para
-    # asegurarnos que no llamamos refresh() en uno que se
-    # pueda estar usando en otro thread.
-    creds = credentials.Credentials(
-        token=None,
-        client_id=cfg.oauth_client_id,
-        client_secret=cfg.oauth_client_secret.get_secret_value(),
-        refresh_token=cfg.oauth_refresh_token.get_secret_value(),
-        token_uri="https://accounts.google.com/o/oauth2/token",
-    )
-
-    creds.refresh(Request())  # FIXME: catch UserAccessTokenError.
+    creds = utils.get_oauth_credentials(cfg)
     cache.set(key, creds)
     return creds
 
