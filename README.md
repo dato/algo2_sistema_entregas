@@ -26,6 +26,6 @@ Pequeña aplicación web para que los alumnos hagan las entregas de TPs.
 
 - Para habilitar una entrega:
 
-	- Abrir `config.py` en `/srv/apps/entregas/repo/`
+	- Abrir `config.py` en `/srv/algo2/entregas/repo`
 	- Descomentar la entrega que queremos habilitar
-	- Reiniciar la app con `touch entregas2.ini` en `/srv/apps/entregas/`
+	- Reiniciar la app con `touch entregas2.ini` en `/srv/algo2/entregas`
