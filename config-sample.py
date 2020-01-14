@@ -25,4 +25,7 @@ SERVICE_ACCOUNT_CREDENTIALS = {
 RECAPTCHA_SITE_ID = '...'
 RECAPTCHA_SECRET = '...'
 
+# Tiempo tras el que invalidar la caché de la planilla (en segundos).
+PLANILLA_TTL = 3600  # 1 hora
+
 TEST = False
