@@ -44,10 +44,10 @@ Cada entrega quedará registrada.
         <label class="input-group-btn">
           <span class="btn btn-default">
           <span class="glyphicon glyphicon-paperclip" aria-hidden="true"></span>
-          <input type="file" style="display: none;" name="files">
+          <input type="file" id="file" style="display: none;" name="files">
           </span>
         </label>
-        <input type="text" class="form-control filename" readonly>
+        <input type="text" id="filename" class="form-control filename" readonly>
       </div>
       </div>
       <p class="help-block">
@@ -80,7 +80,10 @@ Cada entrega quedará registrada.
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
   $('#identificador').on('input', validate);
-  $('#files').find('input[type="file"]').on('change', setFile);
+  $('#file').change(function() {
+    $('#filename').val(this.files[0].name);
+    validate();
+  });
 });
 
 var correctores = JSON.parse('{{correctores_json|safe}}');
@@ -96,13 +99,6 @@ function invert(dict) {
         }
     }
     return res;
-}
-
-function setFile() {
-  var filename = $(this).val().replace(/\\/g, '/').replace(/.*\//, '');
-  var inputGroup = $(this).closest('.input-group');
-  inputGroup.find('.filename').val(filename);
-  validate();
 }
 
 function clone(prefix, container) {
