@@ -39,7 +39,6 @@ Cada entrega quedará registrada.
   <div class="form-group" id="fg_adjuntos">
     <label for="file0" class="col-xs-2 control-label">Adjunto:</label>
     <div class="col-xs-4">
-      <div id="files">
       <div class="input-group">
         <label class="input-group-btn">
           <span class="btn btn-default">
@@ -48,7 +47,6 @@ Cada entrega quedará registrada.
           </span>
         </label>
         <input type="text" id="filename" class="form-control filename" readonly>
-      </div>
       </div>
       <p class="help-block">
         Formatos aceptados: <code>.zip</code>
@@ -178,12 +176,8 @@ function validatePadron(tp) {
 }
 
 function validateFiles() {
-  var valid = false;
-  $('#files').find('input[type="file"]').each(function () {
-    var thisValid = !!($(this).val());
-    valid = valid || thisValid;
-    $(this).closest('.input-group').toggleClass('has-success', thisValid);
-  });
+  var valid = !!($('#file').val());
+  $('#file').closest('.input-group').toggleClass('has-success', valid);
   return valid;
 }
 
