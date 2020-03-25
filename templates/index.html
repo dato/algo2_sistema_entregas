@@ -106,20 +106,11 @@ function addFileInput() {
   $(inputGroup).find('input[type="file"]').on('change', setFile);
 }
 
-function rmFileInput() {
-  $(this).closest('.input-group').remove();
-}
-
 function setFile() {
   var filename = $(this).val().replace(/\\/g, '/').replace(/.*\//, '');
   var inputGroup = $(this).closest('.input-group');
   inputGroup.find('.filename').val(filename);
   validate();
-}
-
-function getFilenames() {
-  return $('#files').find('input[type="file"]')
-    .map(function () { return $(this).val() }).get();
 }
 
 function clone(prefix, container) {
