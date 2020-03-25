@@ -39,7 +39,14 @@ Cada entrega quedará registrada.
   <div class="form-group" id="fg_adjuntos">
     <label for="file0" class="col-xs-2 control-label">Adjunto:</label>
     <div class="col-xs-4">
-      <div id="files">
+      <div class="input-group">
+        <label class="input-group-btn">
+          <span class="btn btn-default">
+          <span class="glyphicon glyphicon-paperclip" aria-hidden="true"></span>
+          <input type="file" id="file" style="display: none;" name="files" accept=".zip, application/zip">
+          </span>
+        </label>
+        <input type="text" id="filename" class="form-control filename" readonly>
       </div>
       <p class="help-block">
         Formatos aceptados: <code>.zip</code>
@@ -71,8 +78,10 @@ Cada entrega quedará registrada.
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
   $('#identificador').on('input', validate);
-
-  addFileInput();
+  $('#file').change(function() {
+    $('#filename').val(this.files[0].name);
+    validate();
+  });
 });
 
 var correctores = JSON.parse('{{correctores_json|safe}}');
@@ -88,38 +97,6 @@ function invert(dict) {
         }
     }
     return res;
-}
-
-function addFileInput() {
-  var inputGroup = $([
-    '<div class="input-group">',
-      '<label class="input-group-btn">',
-        '<span class="btn btn-default">',
-          '<span class="glyphicon glyphicon-paperclip" aria-hidden="true"></span>',
-          '<input type="file" style="display: none;" name="files">',
-        '</span>',
-      '</label>',
-      '<input type="text" class="form-control filename" readonly>',
-    '</div>'
-  ].join(''));
-  $('#files').append(inputGroup);
-  $(inputGroup).find('input[type="file"]').on('change', setFile);
-}
-
-function rmFileInput() {
-  $(this).closest('.input-group').remove();
-}
-
-function setFile() {
-  var filename = $(this).val().replace(/\\/g, '/').replace(/.*\//, '');
-  var inputGroup = $(this).closest('.input-group');
-  inputGroup.find('.filename').val(filename);
-  validate();
-}
-
-function getFilenames() {
-  return $('#files').find('input[type="file"]')
-    .map(function () { return $(this).val() }).get();
 }
 
 function clone(prefix, container) {
@@ -199,12 +176,8 @@ function validatePadron(tp) {
 }
 
 function validateFiles() {
-  var valid = false;
-  $('#files').find('input[type="file"]').each(function () {
-    var thisValid = !!($(this).val());
-    valid = valid || thisValid;
-    $(this).closest('.input-group').toggleClass('has-success', thisValid);
-  });
+  var valid = !!($('#file').val());
+  $('#file').closest('.input-group').toggleClass('has-success', valid);
   return valid;
 }
 
