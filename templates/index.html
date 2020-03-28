@@ -15,7 +15,7 @@ Cada entrega quedará registrada.
   {% if alert %}<div class="alert alert-danger">{{ alert }}</div>{% endif %}
 
   <div class="form-group" id="fg_tp">
-    <label for="tp" class="col-xs-2 control-label">Entrega:</label>
+    <label for="tp" class="col-xs-2 control-label">Trabajo:</label>
     <div class="col-xs-4">
       <select class="form-control" name="tp" id="tp" value="">
         <option style="display:none" selected value></option>
@@ -36,6 +36,19 @@ Cada entrega quedará registrada.
       </p>
     </div>
   </div>
+  <div class="form-group" id="fg_tipo">
+    <label for="tipo" class="col-xs-2 control-label">Tipo de entrega:</label>
+    <div class="col-xs-4">
+      <div class="input-group">
+        <div class="radio">
+          <label><input type="radio" name="tipo" value="entrega" checked>Entrega de código</label>
+        </div>
+        <div class="radio">
+          <label><input type="radio" name="tipo" value="ausencia">Notificación de ausencia</label>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="form-group" id="fg_adjuntos">
     <label for="file" class="col-xs-2 control-label">Adjunto:</label>
     <div class="col-xs-4">
@@ -54,10 +67,10 @@ Cada entrega quedará registrada.
     </div>
   </div>
   <div class="form-group" id="fg_body">
-    <label for="body" class="col-xs-2 control-label">Mensaje (opcional):</label>
+    <label for="body" class="col-xs-2 control-label">Cambios realizados:</label>
     <div class="col-xs-4">
       <textarea class="form-control" name="body" id="body"></textarea>
-      <span class="help-block">Cualquier aclaración de utilidad para el corrector.</span>
+      <span class="help-block">(O cualquier otra aclaración.)</span>
     </div>
   </div>
   <div class="form-group">
@@ -78,10 +91,12 @@ Cada entrega quedará registrada.
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
   $('#identificador').on('input', validate);
+  $('input[name=tipo]:radio', '#fg_tipo').change(validate);
   $('#file').change(function() {
     $('#filename').val(this.files[0].name);
     validate();
   });
+  $('#body').change(validate);  // Verifica solo al perder focus.
 });
 
 var correctores = JSON.parse('{{correctores_json|safe}}');
@@ -91,8 +106,18 @@ function validate() {
   var tp = validateTP();
   var padronValid = validatePadron(tp);
   var filesValid = validateFiles();
-  var valid = !!tp && padronValid && filesValid;
+  var ausenciaValid = validateAusencia();
+  var valid = !!tp && padronValid && (filesValid || ausenciaValid);
   $('#submit').prop('disabled', !valid);
+}
+
+function validateAusencia() {
+  var value = $('input[name=tipo]:checked', '#fg_tipo').val();
+  var isAusencia = value == 'ausencia';
+  $('#file').prop('disabled', isAusencia);
+  $('span.btn', '#fg_adjuntos').toggleClass('disabled', isAusencia);
+  $('#fg_body label').html(isAusencia ? 'Justificación:' : 'Cambios realizados:');
+  return isAusencia && $('#body').val().trim().length > 0;
 }
 
 function validateTP() {
