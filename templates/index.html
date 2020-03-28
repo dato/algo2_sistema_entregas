@@ -87,27 +87,6 @@ document.addEventListener("DOMContentLoaded", function() {
 var correctores = JSON.parse('{{correctores_json|safe}}');
 var entregas = JSON.parse('{{entregas_json|safe}}');
 
-function invert(dict) {
-    var res = {};
-    var ks = Object.keys(dict);
-    for (var i = 0; i < ks.length; i++) {
-        var xs = dict[ks[i]];
-        for (var j = 0; j < xs.length; j++) {
-            res[xs[j]] = ks[i];
-        }
-    }
-    return res;
-}
-
-function clone(prefix, container) {
-  var id = prefix + $(container).children().length;
-  var newInput = $(container).children().last().clone();
-  newInput.val('');
-  newInput.attr('id', id);
-  newInput.attr('name', prefix);
-  newInput.appendTo($(container))
-}
-
 function validate() {
   var tp = validateTP();
   var padronValid = validatePadron(tp);
