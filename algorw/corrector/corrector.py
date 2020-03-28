@@ -126,6 +126,7 @@ def procesar_entrega(msg):
     # No es una entrega real, por tanto no se envía al worker.
     for path, zip_info in zip_walk(zip_obj):
       moss.save_data(path, zip_obj.read(zip_info))
+    moss.commit_emoji()
     moss.flush()
     send_reply(msg, "Justificación registrada\n\n" +
                "-- \nURL de esta entrega (para uso docente):\n" + moss.url())
@@ -337,11 +338,14 @@ class Moss:
     filepath.write_text(f"```\n{output}```")
     return self._git(["add", filepath]) == 0
 
-  def commit_emoji(self, output):
-    emoji = ":x: "
-    resultado = output.split("\n")[0]
-    if "Todo OK" in resultado: emoji = ":heavy_check_mark: "
-    self._commit_message = emoji + self._commit_message
+  def commit_emoji(self, output=None):
+    if output is None:
+      emoji = ":question:"
+    elif "Todo OK" in output.split("\n", 1)[0]:
+      emoji = ":heavy_check_mark:"
+    else:
+      emoji = ":x:"
+    self._commit_message = f"{emoji} " + self._commit_message
 
 def zip_datetime(info):
   """Gets a datetime.datetime from a ZipInfo object.
