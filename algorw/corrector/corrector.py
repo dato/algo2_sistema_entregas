@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.6
+#!/usr/bin/env python3
 
 """Script principal del corrector automático de Algoritmos II.
 
@@ -55,6 +55,7 @@ GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
 
 MAX_ZIP_SIZE = 1024 * 1024  # 1 MiB
 PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
+AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 
 GMAIL_ACCOUNT = os.environ.get("CORRECTOR_ACCOUNT")
 CLIENT_ID = os.environ.get("CORRECTOR_OAUTH_CLIENT")
@@ -72,7 +73,7 @@ IGNORE_ADDRESSES = {
 
 # Archivos que no aceptamos en las entregas.
 FORBIDDEN_EXTENSIONS = {
-    ".o", ".class", ".jar",
+    ".o", ".class", ".jar", ".pyc",
 }
 
 
@@ -119,6 +120,17 @@ def procesar_entrega(msg):
   zip_obj = find_zip(msg)
   skel_dir = SKEL_DIR / tp_id
 
+  moss = Moss(DATA_DIR, tp_id, padron, msg["Date"])
+
+  if AUSENCIA_REGEX.match(subj):
+    # No es una entrega real, por tanto no se envía al worker.
+    for path, zip_info in zip_walk(zip_obj):
+      moss.save_data(path, zip_obj.read(zip_info))
+    moss.flush()
+    send_reply(msg, "Justificación registrada\n\n" +
+               "-- \nURL de esta entrega (para uso docente):\n" + moss.url())
+    return
+
   # Lanzar ya el proceso worker para poder pasar su stdin a tarfile.open().
   worker = subprocess.Popen([WORKER_BIN],
                             stdin=subprocess.PIPE,
@@ -132,8 +144,6 @@ def procesar_entrega(msg):
     path = pathlib.PurePath(entry.path)
     rel_path = path.relative_to(skel_dir)
     tar.add(path, "skel" / rel_path)
-
-  moss = Moss(DATA_DIR, tp_id, padron, msg["Date"])
 
   # A continuación añadir los archivos de la entrega (ZIP).
   for path, zip_info in zip_walk(zip_obj):
@@ -302,14 +312,15 @@ class Moss:
         f'echo "{GITHUB_URL}/tree/$({short_rev})/$({relative_dir})"',
         shell=True, encoding="utf-8", cwd=self._dest)
 
-  def save_data(self, filename, contents):
+  def save_data(self, relpath, contents):
     """Guarda un archivo si es código fuente.
 
     Devuelve True si se guardó, False si se decidió no guardarlo.
     """
-    path = self._dest / filename.name
+    path = self._dest / relpath
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(contents)
-    return self._git(["add", path.name]) == 0
+    return self._git(["add", relpath]) == 0
 
   def flush(self):
     """Termina de guardar los archivos en el repositorio.
