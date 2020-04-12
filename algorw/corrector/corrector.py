@@ -55,6 +55,7 @@ GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
 
 MAX_ZIP_SIZE = 1024 * 1024  # 1 MiB
 PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
+AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 
 GMAIL_ACCOUNT = os.environ.get("CORRECTOR_ACCOUNT")
 CLIENT_ID = os.environ.get("CORRECTOR_OAUTH_CLIENT")
@@ -117,6 +118,17 @@ def procesar_entrega(msg):
   zip_obj = find_zip(msg)
   skel_dir = SKEL_DIR / tp_id
 
+  moss = Moss(DATA_DIR, tp_id, padron, msg["Date"])
+
+  if AUSENCIA_REGEX.match(subj):
+    # No es una entrega real, por tanto no se envía al worker.
+    for path, zip_info in zip_walk(zip_obj):
+      moss.save_data(path, zip_obj.read(zip_info))
+    moss.flush()
+    send_reply(msg, "Justificación registrada\n\n" +
+               "-- \nURL de esta entrega (para uso docente):\n" + moss.url())
+    return
+
   # Lanzar ya el proceso worker para poder pasar su stdin a tarfile.open().
   worker = subprocess.Popen([WORKER_BIN],
                             stdin=subprocess.PIPE,
@@ -130,8 +142,6 @@ def procesar_entrega(msg):
     path = pathlib.PurePath(entry.path)
     rel_path = path.relative_to(skel_dir)
     tar.add(path, "skel" / rel_path)
-
-  moss = Moss(DATA_DIR, tp_id, padron, msg["Date"])
 
   # A continuación añadir los archivos de la entrega (ZIP).
   for path, zip_info in zip_walk(zip_obj):
