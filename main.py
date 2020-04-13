@@ -1,10 +1,12 @@
 import base64
 import datetime
+import io
 import json
 import logging
 import mimetypes
 import smtplib
 import traceback
+import zipfile
 from collections import namedtuple
 from email import encoders
 from email.mime.base import MIMEBase
@@ -69,15 +71,26 @@ def get_files():
     ]
 
 
-def sendmail(emails_alumno, nombres_alumnos,email_docente, tp, padrones, files, body):
+def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files, body):
     correo = MIMEMultipart()
     correo["From"] = SENDER_NAME
     correo["To"] = ", ".join(emails_alumno)
     correo["Cc"] = email_docente
     correo["Bcc"] = EMAIL_TO
     correo["Reply-To"] = correo["To"]  # Responder a los alumnos
-    correo["Subject"] = '{} - {} - {}'.format(tp, ', '.join(padrones), ', '.join(nombres_alumnos))
+    subject_text = '{} - {} - {}'.format(tp, ', '.join(padrones), ', '.join(nombres_alumnos))
 
+    if not files:
+        # Se asume que es una ausencia, se escribe la justificación dentro
+        # de un archivo ZIP para que el corrector automático acepte el mail
+        # como una entrega, y registre la justificación en el repositorio.
+        rawzip = io.BytesIO()
+        with zipfile.ZipFile(rawzip, "w") as zf:
+            zf.writestr("ausencia.txt", body + "\n")
+        files = [File(rawzip.getvalue(), f"{tp.lower()}_ausencia.zip")]
+        subject_text += " (ausencia)"  # Permite al corrector omitir las pruebas.
+
+    correo["Subject"] = subject_text
     correo.attach(MIMEText('\n'.join([
             tp,
             '\n'.join(emails_alumno),
@@ -167,11 +180,16 @@ def post():
         planilla = fetch_planilla()
         tp = request.form['tp']
         if tp not in planilla.entregas:
-            raise Exception('La entrega {} es inválida'.format(tp))
+            raise Exception('La entrega {!r} es inválida'.format(tp))
 
         files = get_files()
-        if not files:
+        body = request.form['body'] or ''
+        tipo = request.form['tipo']
+
+        if tipo == 'entrega' and not files:
             raise Exception('No se ha adjuntado ningún archivo con extensión válida.')
+        elif tipo == 'ausencia' and not body:
+            raise Exception('No se ha adjuntado una justificación para la ausencia.')
 
         padron_o_grupo = request.form['identificador']
 
@@ -179,7 +197,6 @@ def post():
         validate_grupo(planilla, padron_o_grupo, tp)
 
         docente = get_docente(planilla.correctores, padron_o_grupo, planilla, tp)
-        body = request.form['body'] or ''
         email_docente = planilla.emails_docentes[docente]
         padrones = get_padrones(planilla, padron_o_grupo)
         emails_alumno = get_emails_alumno(planilla, padrones)
