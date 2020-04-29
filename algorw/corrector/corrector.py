@@ -62,6 +62,7 @@ REPO_DIR = ROOT_DIR / os.environ["CORRECTOR_REPOS"]
 MAX_ZIP_SIZE = 1024 * 1024  # 1 MiB
 PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
+TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
 
 GMAIL_ACCOUNT = os.environ.get("CORRECTOR_ACCOUNT")
 CLIENT_ID = os.environ.get("CORRECTOR_OAUTH_CLIENT")
@@ -166,10 +167,21 @@ def procesar_entrega(msg):
   output = stdout.decode("utf-8")
   retcode = worker.wait()
 
-  try:
-    pullreq.update_repo(tp_id, REPO_DIR / padron, moss.location(), REPO_TSV)
-  except Exception as ex:
-    print(f"Error al exportar a repositorio individual: {ex}", file=sys.stderr)
+  if TODO_OK_REGEX.search(output) and REPO_TSV.exists():
+    # Sincronizar la entrega con los repositorios individuales.
+    pullreq_url = None
+    repodir = REPO_DIR / padron
+    try:
+      pullreq_url = pullreq.update_repo(tp_id, repodir, moss.location(), REPO_TSV)
+    except Exception as ex:
+      print(f"Error al exportar a repositorio individual: {ex}", file=sys.stderr)
+
+    if pullreq_url:
+      # Insertar la URL de la pull request en el mensaje. Es medio hairy porque
+      # hay que insertarlo después del Todo OK. TODO: migrate to Jinja templates.
+      pre, post = TODO_OK_REGEX.split(output, 1)
+      message = "URL para crear pull request de la entrega (consultar docente):"
+      output = f"{pre}Todo OK\n\n{message}\n{pullreq_url}{post}"
 
   if retcode == 0:
     send_reply(msg, output + "\n\n" +
