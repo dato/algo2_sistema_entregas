@@ -122,7 +122,7 @@ def procesar_entrega(msg):
 
   moss = Moss(DATA_DIR, tp_id, padron, msg["Date"])
 
-  if AUSENCIA_REGEX.match(subj):
+  if AUSENCIA_REGEX.search(subj):
     # No es una entrega real, por tanto no se envía al worker.
     for path, zip_info in zip_walk(zip_obj):
       moss.save_data(path, zip_obj.read(zip_info))
