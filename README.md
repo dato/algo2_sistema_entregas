@@ -2,12 +2,8 @@
 
 Pequeña aplicación web para que los alumnos hagan las entregas de TPs.
 
-## Ejecución
 
-- Crear el ambiente virtual e instalar los requerimientos:
-
-        $ pyton3 -m venv venv
-        $ venv/bin/pip3 install -r requirements.txt
+## Configuración
 
 - Copiar el archivo `config-sample.py` a `config.py` y completarlo:
 
@@ -17,14 +13,34 @@ Pequeña aplicación web para que los alumnos hagan las entregas de TPs.
       que se muestran en el dropdown.
 
 
-## Correr local
+## Ejecución local
 
-- Es suficiente con correr Flask desde el directorio _venv:_
+- Crear el ambiente virtual e instalar los requerimientos:
 
-        $ FLASK_ENV=development venv/bin/flask run
+        $ pipenv install --ignore-pipfile
 
+- Es suficiente con correr Flask desde el entorno creado por _[pipenv]:_
 
-## Habilitar una entrega
+        $ pipenv shell
+        $ FLASK_ENV=development flask run
+
+  O se puede usar `pipenv run` si no se desea modificar el shell:
+
+        $ FLASK_ENV=development pipenv run flask run
+
+[pipenv]: https://pipenv.pypa.io/en/stable/
+
+## Deploy
+
+Para instalar en el server, usar el comando `pipenv sync` con una variable de entorno que indique que el _virtualenv_ se debe crear en una ubicación predecible, _.venv_ (por omisión, _pipenv_ usa un hash digest de las dependencias para nombrar el entorno):
+
+    $ PIPENV_VENV_IN_PROJECT=1 pipenv sync
+
+El fichero de configuración de uWSGI especificará entonces:
+
+    virtualenv = %d/.venv
+
+### Habilitar una entrega
 
 - Para habilitar una entrega:
 
@@ -35,25 +51,6 @@ Pequeña aplicación web para que los alumnos hagan las entregas de TPs.
 
 ## Actualización de dependencias (directas e indirectas)
 
-Las dependencias directas de la aplicación se listan en el archivo `deps.txt`.
-En dicho archivo se especifica también la versión a usar. Para actualizar todas
-las bibliotecas a su última versión, manteniendo compatibilidad con las
-versiones en _deps.txt_, se debe:
+Las dependencias directas de la aplicación se listan en el archivo [Pipfile](Pipfile), junto con la versión a usar. Se pueden actualizar todas las bibliotecas a su última versión compatible con `pipenv update`.
 
-1.  crear un nuevo _virtualenv_:
-
-        $ rm -rf venv
-        $ python3 -m venv venv
-
-2.  reinstalar el software a partir de _deps.txt:_
-
-        $ venv/bin/pip3 install -r deps.txt
-
-3.  una vez verificado que la aplicación sigue funcionando, actualizar el
-    archivo `requirements.txt` con las nuevas versiones:
-
-        $ venv/bin/pip3 freeze >requirements.txt
-
-Si se desea actualizar alguna dependencia directa a una versión superior (p.ej.
-_1.2 → 1.3_ o _1.3 → 2.0_), se debe actualizar el archivo _deps.txt,_ y
-entonces realizar los tres pasos descritos.
+Si se desea actualizar alguna dependencia directa a una versión superior (p.ej., _urlfetch_), se puede hacer `pipenv install "urlfetch==1.2.*"` o similar.
