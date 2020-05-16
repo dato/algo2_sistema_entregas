@@ -147,5 +147,10 @@ def background_fetch():
         fetch_planilla()  # Thread-safe gracias a cachetools.ttl_cache.
         time.sleep(55)
 
+# Nota: para que esto funcione bien en uWSGI y su modelo de preforking,
+# se debe usar "lazy-apps=true" en la configuración. Las alternativas
+# "master=false" y @uwsgidecorators.{postfork,thread} mencionadas en
+# https://stackoverflow.com/a/32070594/848301 también funcionan, pero
+# con peores trade-offs.
 fetch_timer = threading.Thread(target=background_fetch, daemon=True)
 fetch_timer.start()
