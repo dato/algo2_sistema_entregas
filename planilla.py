@@ -1,12 +1,21 @@
+import collections
+import threading
+import time
+
 import gspread
+import cachetools.func
 from oauth2client.service_account import ServiceAccountCredentials
-from collections import namedtuple, defaultdict
-from config import SPREADSHEET_ID, ENTREGAS, SERVICE_ACCOUNT_CREDENTIALS, GRUPAL, INDIVIDUAL
+
+from config import SPREADSHEET_ID, ENTREGAS, SERVICE_ACCOUNT_CREDENTIALS, GRUPAL, INDIVIDUAL, PLANILLA_TTL
 
 SCOPE = ['https://spreadsheets.google.com/feeds']
 SHEET_NOTAS = 'Notas'
 SHEET_DATOS_ALUMNOS = 'DatosAlumnos'
 SHEET_DATOS_DOCENTES = 'DatosDocentes'
+
+__all__ = [
+    "fetch_planilla",
+]
 
 
 def fetch_sheet(ranges):
@@ -55,7 +64,7 @@ def parse_notas(notas):
     # correctores = { <padron o grupo> => <nombre ayudante> }
     correctores = {}
     # grupos = { <grupo> => set(<padron>, ...) }
-    grupos = defaultdict(set)
+    grupos = collections.defaultdict(set)
 
     for row in celdas[1:]:
         # Información de las entregas individuales.
@@ -99,7 +108,7 @@ def parse_datos_docentes(docentes):
     return emails_docentes
 
 
-Planilla = namedtuple('Planilla', [
+Planilla = collections.namedtuple('Planilla', [
     'correctores',
     'grupos',
     'emails_alumnos',
@@ -109,6 +118,7 @@ Planilla = namedtuple('Planilla', [
 ])
 
 
+@cachetools.func.ttl_cache(maxsize=1, ttl=PLANILLA_TTL)
 def fetch_planilla():
     notas, datos_alumnos, datos_docentes = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS, SHEET_DATOS_DOCENTES])
     emails_alumnos,nombres_alumnos = parse_datos_alumnos(datos_alumnos)
@@ -122,3 +132,25 @@ def fetch_planilla():
         emails_docentes,
         ENTREGAS,
     )
+
+# cachetools.ttl_cache nos asegura que jamás se use una planilla más
+# antigua de lo establecido. Sin embargo, de por sí, con ttl_cache
+# la planilla solo tiene oportunidad de refrescarse cuando se invoca
+# a la funcion. Por ello, es probable que muchas visitas demoren
+# por tener que recargar una planilla que se encontraba expirada.
+#
+# Para acercarnos al ideal de servir todas las peticiones desde cache,
+# lanzamos un hilo en segundo plano que, minuto a minuto, se asegure
+# de que se refresca si había expirado.
+def background_fetch():
+    while True:
+        fetch_planilla()  # Thread-safe gracias a cachetools.ttl_cache.
+        time.sleep(55)
+
+# Nota: para que esto funcione bien en uWSGI y su modelo de preforking,
+# se debe usar "lazy-apps=true" en la configuración. Las alternativas
+# "master=false" y @uwsgidecorators.{postfork,thread} mencionadas en
+# https://stackoverflow.com/a/32070594/848301 también funcionan, pero
+# con peores trade-offs.
+fetch_timer = threading.Thread(target=background_fetch, daemon=True)
+fetch_timer.start()
