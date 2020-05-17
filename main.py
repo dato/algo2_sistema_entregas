@@ -23,7 +23,7 @@ from flask import request
 from werkzeug.utils import secure_filename
 
 from config import SENDER_NAME, EMAIL_TO, APP_TITLE, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST, CLIENT_ID, \
-    CLIENT_SECRET, OAUTH_REFRESH_TOKEN, GRUPAL, INDIVIDUAL
+    CLIENT_SECRET, OAUTH_REFRESH_TOKEN, GRUPAL, INDIVIDUAL, PARCIALITO
 from planilla import fetch_planilla
 
 app = Flask(__name__)
@@ -231,6 +231,8 @@ def validate_captcha():
 
 
 def get_docente(correctores, padron_o_grupo, planilla, tp):
+    if planilla.entregas[tp] == PARCIALITO:
+        return ""  # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
     if padron_o_grupo not in correctores:
         raise Exception('No hay un corrector asignado para el padrón o grupo {}'.format(padron_o_grupo))
 

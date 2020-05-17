@@ -2,6 +2,7 @@ from collections import OrderedDict
 
 GRUPAL = "g"
 INDIVIDUAL = "i"
+PARCIALITO = "p"
 
 SPREADSHEET_ID = '...'
 ENTREGAS = OrderedDict([('TP0', INDIVIDUAL), ('VD', INDIVIDUAL), ('Pila', INDIVIDUAL) ])
