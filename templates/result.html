@@ -3,15 +3,13 @@
 {% if warning %}
     <div class="alert alert-warning" role="alert"><strong>Aviso:</strong> {{warning}}</div>
 {% endif %}
-{% if sent %}
-    <div class="alert alert-success" role="alert">
-        Tu <strong>{{sent.tp}}</strong> fue enviado.
-    </div>
-    {% if sent.email %}
-        <div class="alert alert-info" role="alert"><pre>{{sent.email}}</pre></div>
-    {% endif %}
-{% endif %}
 {% if error %}
     <div class="alert alert-danger" role="alert">{{error}}</div>
+{% elif email %}
+    <div class="alert alert-info" role="alert"><pre>{{email}}</pre></div>
+{% else %}
+    <div class="alert alert-success" role="alert">
+        Tu <strong>{{tp}}</strong> fue enviado.
+    </div>
 {% endif %}
 {% endblock %}

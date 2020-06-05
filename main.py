@@ -38,13 +38,12 @@ class InvalidForm(Exception):
     """
 
 
-@app.route('/', methods=['GET'])
+@app.route("/", methods=["GET"])
 def get():
     planilla = fetch_planilla()
-    return render('index.html', {
-        'entregas': planilla.entregas,
-        'correctores': planilla.correctores,
-    })
+    return render("index.html",
+                  entregas=planilla.entregas,
+                  correctores=planilla.correctores)
 
 
 @app.errorhandler(Exception)
@@ -55,7 +54,7 @@ def err(error):
         code = error.code
         message = error.description
     logging.exception(error)
-    return render('result.html', {'error': message}), code
+    return render("result.html", error=message), code
 
 
 @app.errorhandler(InvalidForm)
@@ -63,15 +62,15 @@ def warn_and_render(ex):
     """Error menos verboso que err(), apropiado para excepciones de usuario.
     """
     logging.warn(f"InvalidForm: {ex}")
-    return render('result.html', {'error': ex}), 422  # Unprocessable Entity
+    return render("result.html", error=ex), 422  # Unprocessable Entity
 
 
-def render(name, params={}):
-    return render_template(name, **dict(params, **{
-        'title': APP_TITLE,
-        'recaptcha_site_id': RECAPTCHA_SITE_ID,
-        'test': TEST,
-    }))
+def render(name, **params):
+    return render_template(name,
+                           test=TEST,
+                           title=APP_TITLE,
+                           recaptcha_site_id=RECAPTCHA_SITE_ID,
+                           **params)
 
 
 def archivo_es_permitido(nombre):
@@ -221,12 +220,10 @@ def post():
 
     email = sendmail(emails_alumno, nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
 
-    return render('result.html', {
-        'sent': {
-            'tp': tp,
-            'email': '\n'.join('[[{}]]: {}'.format(k, str(v)) for k, v in email.items()) if TEST else None,
-        },
-    })
+    return render("result.html",
+                  tp=tp,
+                  email='\n'.join(f"{k}: {v}"
+                                  for k, v in email.items()) if TEST else None)
 
 
 def validate_captcha():
