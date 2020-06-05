@@ -91,13 +91,11 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
         subject_text += " (ausencia)"  # Permite al corrector omitir las pruebas.
 
     correo["Subject"] = subject_text
-    correo.attach(MIMEText('\n'.join([
-            tp,
-            '\n'.join(emails_alumno),
-            '\n{}\n'.format(body) if body else '',
-            '-- ',
-            '{} - {}'.format(APP_TITLE, request.url),
-        ]), 'plain'))
+    correo.attach(MIMEText('\n'.join([tp,
+                                      '\n'.join(emails_alumno),
+                                      f'\n{body}\n' if body else '',
+                                      f'-- \n{APP_TITLE} - {request.url}',
+    ]), 'plain'))
 
     for f in files:
         # Tomado de: https://docs.python.org/3.5/library/email-examples.html#id2
@@ -153,7 +151,7 @@ def get_oauth_credentials():
 
 def get_padrones(planilla, padron_o_grupo):
     if padron_o_grupo not in planilla.correctores:
-        raise Exception('No se encuentra el alumno o grupo {}'.format(padron_o_grupo))
+        raise Exception(f"No se encuentra el alumno o grupo {padron_o_grupo}")
 
     # Es un grupo.
     if padron_o_grupo in planilla.grupos:
@@ -165,7 +163,7 @@ def get_padrones(planilla, padron_o_grupo):
 
 def validate_grupo(planilla, padron_o_grupo, tp):
     if padron_o_grupo in planilla.grupos and planilla.entregas[tp] == INDIVIDUAL:
-        raise Exception("La entrega {} debe ser entregada de forma individual".format(tp))
+        raise Exception(f"La entrega {tp} debe ser entregada de forma individual")
 
 def get_emails_alumno(planilla, padrones):
     return [planilla.emails_alumnos[p] for p in padrones]
@@ -180,7 +178,7 @@ def post():
         planilla = fetch_planilla()
         tp = request.form['tp']
         if tp not in planilla.entregas:
-            raise Exception('La entrega {!r} es inválida'.format(tp))
+            raise Exception(f"La entrega {tp!r} es inválida")
 
         files = get_files()
         body = request.form['body'] or ''
@@ -234,7 +232,7 @@ def get_docente(correctores, padron_o_grupo, planilla, tp):
     if planilla.entregas[tp] == PARCIALITO:
         return ""  # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
     if padron_o_grupo not in correctores:
-        raise Exception('No hay un corrector asignado para el padrón o grupo {}'.format(padron_o_grupo))
+        raise Exception(f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
 
     if padron_o_grupo in planilla.grupos or planilla.entregas[tp] != GRUPAL:
         return correctores[padron_o_grupo]
