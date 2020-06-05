@@ -90,9 +90,7 @@ def parse_notas(notas):
 
 def parse_datos_docentes(docentes):
     celdas = docentes.get_all_values()
-
-    # El header de los docentes está en la fila 3
-    headers = celdas[2]
+    headers = celdas[0]
 
     DOCENTE = headers.index('Nombre')
     MAIL = headers.index('Mail')
