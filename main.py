@@ -1,13 +1,13 @@
 import base64
+import collections
 import datetime
 import io
-import json
 import logging
 import mimetypes
 import smtplib
 import traceback
 import zipfile
-from collections import namedtuple
+
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -17,6 +17,7 @@ from urllib.parse import urlencode
 import httplib2
 import oauth2client.client
 import urlfetch
+
 from flask import Flask
 from flask import render_template
 from flask import request
@@ -27,7 +28,7 @@ from config import SENDER_NAME, EMAIL_TO, APP_TITLE, RECAPTCHA_SECRET, RECAPTCHA
 from planilla import fetch_planilla
 
 app = Flask(__name__)
-File = namedtuple('File', ['content', 'filename'])
+File = collections.namedtuple('File', ['content', 'filename'])
 
 
 EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}
@@ -38,8 +39,7 @@ def get():
     planilla = fetch_planilla()
     return render('index.html', {
         'entregas': planilla.entregas,
-        'entregas_json': json.dumps(planilla.entregas),
-        'correctores_json': json.dumps(planilla.correctores),
+        'correctores': planilla.correctores,
     })
 
 
