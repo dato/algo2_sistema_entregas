@@ -18,9 +18,8 @@ import httplib2
 import oauth2client.client
 import urlfetch
 
-from flask import Flask
-from flask import render_template
-from flask import request
+from flask import Flask, render_template, request
+from werkzeug.exceptions import FailedDependency, HTTPException
 from werkzeug.utils import secure_filename
 
 from config import SENDER_NAME, EMAIL_TO, APP_TITLE, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST, CLIENT_ID, \
@@ -34,6 +33,11 @@ File = collections.namedtuple('File', ['content', 'filename'])
 EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}
 
 
+class InvalidForm(Exception):
+    """Excepción para cualquier error en el form.
+    """
+
+
 @app.route('/', methods=['GET'])
 def get():
     planilla = fetch_planilla()
@@ -45,8 +49,21 @@ def get():
 
 @app.errorhandler(Exception)
 def err(error):
+    code = 500
+    message = str(error)
+    if isinstance(error, HTTPException):
+        code = error.code
+        message = error.description
     logging.exception(error)
-    return render('result.html', {'error': error})
+    return render('result.html', {'error': message}), code
+
+
+@app.errorhandler(InvalidForm)
+def warn_and_render(ex):
+    """Error menos verboso que err(), apropiado para excepciones de usuario.
+    """
+    logging.warn(f"InvalidForm: {ex}")
+    return render('result.html', {'error': ex}), 422  # Unprocessable Entity
 
 
 def render(name, params={}):
@@ -151,7 +168,7 @@ def get_oauth_credentials():
 
 def get_padrones(planilla, padron_o_grupo):
     if padron_o_grupo not in planilla.correctores:
-        raise Exception(f"No se encuentra el alumno o grupo {padron_o_grupo}")
+        raise InvalidForm(f"No se encuentra el alumno o grupo {padron_o_grupo}")
 
     # Es un grupo.
     if padron_o_grupo in planilla.grupos:
@@ -163,7 +180,7 @@ def get_padrones(planilla, padron_o_grupo):
 
 def validate_grupo(planilla, padron_o_grupo, tp):
     if padron_o_grupo in planilla.grupos and planilla.entregas[tp] == INDIVIDUAL:
-        raise Exception(f"La entrega {tp} debe ser entregada de forma individual")
+        raise InvalidForm(f"La entrega {tp} debe ser entregada de forma individual")
 
 def get_emails_alumno(planilla, padrones):
     return [planilla.emails_alumnos[p] for p in padrones]
@@ -173,44 +190,43 @@ def get_nombres_alumnos(planilla, padrones):
 
 @app.route('/', methods=['POST'])
 def post():
+    planilla = fetch_planilla()
     try:
         validate_captcha()
-        planilla = fetch_planilla()
         tp = request.form['tp']
         if tp not in planilla.entregas:
-            raise Exception(f"La entrega {tp!r} es inválida")
+            raise InvalidForm(f"La entrega {tp!r} es inválida")
 
         files = get_files()
         body = request.form['body'] or ''
         tipo = request.form['tipo']
 
         if tipo == 'entrega' and not files:
-            raise Exception('No se ha adjuntado ningún archivo con extensión válida.')
+            raise InvalidForm('No se ha adjuntado ningún archivo con extensión válida.')
         elif tipo == 'ausencia' and not body:
-            raise Exception('No se ha adjuntado una justificación para la ausencia.')
+            raise InvalidForm('No se ha adjuntado una justificación para la ausencia.')
 
         padron_o_grupo = request.form['identificador']
+    except KeyError as ex:
+        raise InvalidForm(f"Formulario inválido sin campo {ex.args[0]!r}") from ex
 
-        # Valida si la entrega es individual o grupal de acuerdo a lo ingresado.
-        validate_grupo(planilla, padron_o_grupo, tp)
+    # Valida si la entrega es individual o grupal de acuerdo a lo ingresado.
+    validate_grupo(planilla, padron_o_grupo, tp)
 
-        docente = get_docente(planilla.correctores, padron_o_grupo, planilla, tp)
-        email_docente = planilla.emails_docentes[docente]
-        padrones = get_padrones(planilla, padron_o_grupo)
-        emails_alumno = get_emails_alumno(planilla, padrones)
-        nombres_alumnos = get_nombres_alumnos(planilla, padrones)
+    docente = get_docente(planilla.correctores, padron_o_grupo, planilla, tp)
+    email_docente = planilla.emails_docentes[docente]
+    padrones = get_padrones(planilla, padron_o_grupo)
+    emails_alumno = get_emails_alumno(planilla, padrones)
+    nombres_alumnos = get_nombres_alumnos(planilla, padrones)
 
-        email = sendmail(emails_alumno, nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
+    email = sendmail(emails_alumno, nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
 
-        return render('result.html', {
-            'sent': {
-                'tp': tp,
-                'email': '\n'.join('[[{}]]: {}'.format(k, str(v)) for k, v in email.items()) if TEST else None,
-            },
-        })
-    except Exception as e:
-        print(traceback.format_exc())
-        raise e
+    return render('result.html', {
+        'sent': {
+            'tp': tp,
+            'email': '\n'.join('[[{}]]: {}'.format(k, str(v)) for k, v in email.items()) if TEST else None,
+        },
+    })
 
 
 def validate_captcha():
@@ -225,14 +241,14 @@ def validate_captcha():
     )
 
     if not response.json['success']:
-        raise Exception('Falló la validación del captcha')
+        raise InvalidForm('Falló la validación del captcha')
 
 
 def get_docente(correctores, padron_o_grupo, planilla, tp):
     if planilla.entregas[tp] == PARCIALITO:
         return ""  # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
     if padron_o_grupo not in correctores:
-        raise Exception(f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
+        raise FailedDependency(f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
 
     if padron_o_grupo in planilla.grupos or planilla.entregas[tp] != GRUPAL:
         return correctores[padron_o_grupo]
