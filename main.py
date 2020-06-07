@@ -207,7 +207,7 @@ def post():
         return render('result.html', {
             'sent': {
                 'tp': tp,
-                'email': '\n'.join('[[{}]]: {}'.format(k, str(v)) for k, v in email) if TEST else None,
+                'email': '\n'.join('[[{}]]: {}'.format(k, str(v)) for k, v in email.items()) if TEST else None,
             },
         })
     except Exception as e:
