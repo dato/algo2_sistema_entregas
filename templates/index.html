@@ -99,8 +99,8 @@ document.addEventListener("DOMContentLoaded", function() {
   $('#body').change(validate);  // Verifica solo al perder focus.
 });
 
-var correctores = JSON.parse('{{correctores_json|safe}}');
-var entregas = JSON.parse('{{entregas_json|safe}}');
+var entregas = {{ entregas | tojson }};
+var correctores = {{ correctores | tojson }};
 
 function validate() {
   var tp = validateTP();
