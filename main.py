@@ -5,7 +5,6 @@ import io
 import logging
 import mimetypes
 import smtplib
-import traceback
 import zipfile
 
 from email import encoders
@@ -22,14 +21,13 @@ from flask import Flask, render_template, request
 from werkzeug.exceptions import FailedDependency, HTTPException
 from werkzeug.utils import secure_filename
 
-from config import SENDER_NAME, EMAIL_TO, APP_TITLE, RECAPTCHA_SECRET, RECAPTCHA_SITE_ID, TEST, CLIENT_ID, \
-    CLIENT_SECRET, OAUTH_REFRESH_TOKEN, GRUPAL, INDIVIDUAL, PARCIALITO
+from config import load_config, Modalidad, Settings
 from planilla import fetch_planilla
 
 app = Flask(__name__)
+cfg: Settings = load_config()
+
 File = collections.namedtuple('File', ['content', 'filename'])
-
-
 EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}
 
 
@@ -42,17 +40,18 @@ class InvalidForm(Exception):
 def get():
     planilla = fetch_planilla()
     return render("index.html",
-                  entregas=planilla.entregas,
+                  entregas=cfg.entregas,
                   correctores=planilla.correctores)
 
 
 @app.errorhandler(Exception)
 def err(error):
-    code = 500
-    message = str(error)
     if isinstance(error, HTTPException):
         code = error.code
         message = error.description
+    else:
+        code = 500
+        message = f"{error.__class__.__name__}: {error}"
     logging.exception(error)
     return render("result.html", error=message), code
 
@@ -66,11 +65,7 @@ def warn_and_render(ex):
 
 
 def render(name, **params):
-    return render_template(name,
-                           test=TEST,
-                           title=APP_TITLE,
-                           recaptcha_site_id=RECAPTCHA_SITE_ID,
-                           **params)
+    return render_template(name, cfg=cfg, **params)
 
 
 def archivo_es_permitido(nombre):
@@ -89,10 +84,10 @@ def get_files():
 
 def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files, body):
     correo = MIMEMultipart()
-    correo["From"] = SENDER_NAME
+    correo["From"] = str(cfg.sender)
     correo["To"] = ", ".join(emails_alumno)
     correo["Cc"] = email_docente
-    correo["Bcc"] = EMAIL_TO
+    correo["Bcc"] = cfg.sender.email
     correo["Reply-To"] = correo["To"]  # Responder a los alumnos
     subject_text = '{} - {} - {}'.format(tp, ', '.join(padrones), ', '.join(nombres_alumnos))
 
@@ -110,7 +105,7 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
     correo.attach(MIMEText('\n'.join([tp,
                                       '\n'.join(emails_alumno),
                                       f'\n{body}\n' if body else '',
-                                      f'-- \n{APP_TITLE} - {request.url}',
+                                      f'-- \n{cfg.title} - {request.url}',
     ]), 'plain'))
 
     for f in files:
@@ -132,9 +127,9 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
         msg.add_header('Content-Disposition', 'attachment', filename=f.filename)
         correo.attach(msg)
 
-    if not TEST:
+    if not cfg.test:
         creds = get_oauth_credentials()
-        xoauth2_tok = "user=%s\1" "auth=Bearer %s\1\1" % (EMAIL_TO,
+        xoauth2_tok = "user=%s\1" "auth=Bearer %s\1\1" % (cfg.sender.email,
                                                           creds.access_token)
         xoauth2_b64 = base64.b64encode(xoauth2_tok.encode("ascii")).decode("ascii")
 
@@ -157,7 +152,10 @@ def get_oauth_credentials():
     # mientras no alcancemos el límite de refresh() de Google (pero no publican
     # cuál es).
     creds = oauth2client.client.OAuth2Credentials(
-        "", CLIENT_ID, CLIENT_SECRET, OAUTH_REFRESH_TOKEN,
+        "",
+        cfg.oauth_client_id,
+        cfg.oauth_client_secret.get_secret_value(),
+        cfg.oauth_refresh_token.get_secret_value(),
         datetime.datetime(2015, 1, 1),
         "https://accounts.google.com/o/oauth2/token", "corrector/1.0")
 
@@ -178,14 +176,17 @@ def get_padrones(planilla, padron_o_grupo):
 
 
 def validate_grupo(planilla, padron_o_grupo, tp):
-    if padron_o_grupo in planilla.grupos and planilla.entregas[tp] == INDIVIDUAL:
+    if padron_o_grupo in planilla.grupos and cfg.entregas[tp] == Modalidad.INDIVIDUAL:
         raise InvalidForm(f"La entrega {tp} debe ser entregada de forma individual")
+
 
 def get_emails_alumno(planilla, padrones):
     return [planilla.emails_alumnos[p] for p in padrones]
 
+
 def get_nombres_alumnos(planilla, padrones):
     return [planilla.nombres_alumnos[p].split(',')[0].title() for p in padrones]
+
 
 @app.route('/', methods=['POST'])
 def post():
@@ -193,7 +194,7 @@ def post():
     try:
         validate_captcha()
         tp = request.form['tp']
-        if tp not in planilla.entregas:
+        if tp not in cfg.entregas:
             raise InvalidForm(f"La entrega {tp!r} es inválida")
 
         files = get_files()
@@ -223,14 +224,14 @@ def post():
     return render("result.html",
                   tp=tp,
                   email='\n'.join(f"{k}: {v}"
-                                  for k, v in email.items()) if TEST else None)
+                                  for k, v in email.items()) if cfg.test else None)
 
 
 def validate_captcha():
     response = urlfetch.fetch(
         url='https://www.google.com/recaptcha/api/siteverify',
         params=urlencode({
-            "secret": RECAPTCHA_SECRET,
+            "secret": cfg.recaptcha_secret.get_secret_value(),
             "remoteip": request.remote_addr,
             "response": request.form["g-recaptcha-response"],
         }),
@@ -242,12 +243,12 @@ def validate_captcha():
 
 
 def get_docente(correctores, padron_o_grupo, planilla, tp):
-    if planilla.entregas[tp] == PARCIALITO:
+    if cfg.entregas[tp] == Modalidad.PARCIALITO:
         return ""  # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
     if padron_o_grupo not in correctores:
         raise FailedDependency(f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
 
-    if padron_o_grupo in planilla.grupos or planilla.entregas[tp] != GRUPAL:
+    if padron_o_grupo in planilla.grupos or cfg.entregas[tp] != Modalidad.GRUPAL:
         return correctores[padron_o_grupo]
 
     # Es un alumno entregando de forma individual una entrega grupal,

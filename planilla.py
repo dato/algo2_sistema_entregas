@@ -6,7 +6,7 @@ import gspread
 import cachetools.func
 from oauth2client.service_account import ServiceAccountCredentials
 
-from config import SPREADSHEET_ID, ENTREGAS, SERVICE_ACCOUNT_CREDENTIALS, GRUPAL, INDIVIDUAL, PLANILLA_TTL
+from config import load_config
 
 SCOPE = ['https://spreadsheets.google.com/feeds']
 SHEET_NOTAS = 'Notas'
@@ -17,11 +17,14 @@ __all__ = [
     "fetch_planilla",
 ]
 
+cfg = load_config()
 
 def fetch_sheet(ranges):
-    credentials = ServiceAccountCredentials.from_json_keyfile_dict(SERVICE_ACCOUNT_CREDENTIALS, SCOPE)
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(
+        cfg.service_account_jsonfile, SCOPE
+    )
     gc = gspread.authorize(credentials)
-    sheet = gc.open_by_key(SPREADSHEET_ID)
+    sheet = gc.open_by_key(cfg.spreadsheet_id)
     return [sheet.worksheet(worksheet) for worksheet in ranges]
 
 
@@ -82,7 +85,7 @@ def parse_notas(notas):
 
         # Información de las entregas grupales como alumnos individualmente.
         # Usado solo por Javascript en las validaciones en el navegador.
-        padron = GRUPAL + padron
+        padron = f"g{padron}"
         correctores[padron] = safely_get_column(row, DOCENTE_GRUP)
 
     return correctores, grupos
@@ -112,11 +115,10 @@ Planilla = collections.namedtuple('Planilla', [
     'emails_alumnos',
     'nombres_alumnos',
     'emails_docentes',
-    'entregas'
 ])
 
 
-@cachetools.func.ttl_cache(maxsize=1, ttl=PLANILLA_TTL)
+@cachetools.func.ttl_cache(maxsize=1, ttl=cfg.planilla_ttl.seconds)
 def fetch_planilla():
     notas, datos_alumnos, datos_docentes = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS, SHEET_DATOS_DOCENTES])
     emails_alumnos,nombres_alumnos = parse_datos_alumnos(datos_alumnos)
@@ -128,7 +130,6 @@ def fetch_planilla():
         emails_alumnos,
         nombres_alumnos,
         emails_docentes,
-        ENTREGAS,
     )
 
 # cachetools.ttl_cache nos asegura que jamás se use una planilla más

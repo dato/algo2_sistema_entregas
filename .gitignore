@@ -1,5 +1,7 @@
+/.flaskenv
+/.secrets
 /venv
-/config.py
+/service_account.json
 
 *.py[cod]
 __pycache__/

@@ -5,13 +5,15 @@ Pequeña aplicación web para que los alumnos hagan las entregas de TPs.
 
 ## Configuración
 
-- Copiar el archivo `config-sample.py` a `config.py` y completarlo:
+- Verificar que los campos `cuatri` y `spreadsheet_id` están actualizados
+  en _entregas.yml_.
 
-    * `SPREADSHEET_ID` es el id de la planilla.
-    * `RECAPTCHA_*` son credenciales de [recaptcha](https://www.google.com/recaptcha/admin).
-    * `ENTREGAS` es un diccionario en el que se especifican las entregas
-      que se muestran en el dropdown.
+- Copiar el archivo _.secrets.template_ a _.secrets_ y completarlo:
 
+    * `OAUTH_*` son nuestras credenciales de Google para enviar mail.
+    * `RECAPTCHA_*` son credenciales de [reCAPTCHA](https://www.google.com/recaptcha/admin).
+
+- Habilitar las entregas apropiadas en _entregas.yml_.
 
 ## Ejecución local
 
@@ -34,7 +36,7 @@ Pequeña aplicación web para que los alumnos hagan las entregas de TPs.
 
 Para instalar en el server, usar el comando `pipenv sync` con una variable de entorno que indique que el _virtualenv_ se debe crear en una ubicación predecible, _.venv_ (por omisión, _pipenv_ usa un hash digest de las dependencias para nombrar el entorno):
 
-    $ PIPENV_VENV_IN_PROJECT=1 pipenv sync
+    $ PIPENV_VENV_IN_PROJECT=1 pipenv install --deploy
 
 El fichero de configuración de uWSGI especificará entonces:
 
@@ -44,8 +46,8 @@ El fichero de configuración de uWSGI especificará entonces:
 
 - Para habilitar una entrega:
 
-	- Abrir `config.py` en `/srv/algo2/entregas/repo`
-	- Descomentar la entrega que queremos habilitar
+	- Abrir `entregas.yml` en `/srv/algo2/entregas/repo`
+	- Mover la entrega de manera que quede dentro del campo _entregas_
 	- Reiniciar la app con `touch entregas2.ini` en `/srv/algo2/entregas`
 
 

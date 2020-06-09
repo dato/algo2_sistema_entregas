@@ -2,7 +2,7 @@
 {% autoescape true %}
 <html>
   <head>
-    <title>{{title}}</title>
+    <title>{{ cfg.title }}</title>
     <link rel="shortcut icon" href="https://algoritmos-rw.github.io/algo2/assets/img/favicon.ico"/>
     <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
     <style>
@@ -22,7 +22,7 @@
     <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
         <div class="container">
             <div class="navbar-header">
-                <a class="navbar-brand" href="/entregas">{{title}}</a>
+                <a class="navbar-brand" href="/entregas">{{ cfg.title }}</a>
             </div>
         </div>
     </div>

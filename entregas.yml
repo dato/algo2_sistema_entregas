@@ -1,0 +1,22 @@
+test: false
+title: Algoritmos y Programación II - Entrega de TPs
+sender: Entregas Algoritmos 2 <tps.7541rw@gmail.com>
+
+cuatri: 2020_1
+planilla_ttl: 1:00:00
+spreadsheet_id: 1VLjgpKCKTEgHylQjVT0noU0MBD4NvYgXnGfoGeCRsTQ
+service_account_jsonfile: service_account.json
+
+# Python 3.7+ respetará el orden del diccionario.
+entregas:
+  TP0:    i
+  Vector: i
+  Pila:   i
+  Cola:   i
+  Lista:  i
+  TP1:    i
+  Hash:   g
+  ABB:    g
+  Heap:   g
+  TP2:    g
+  TP3:    g
