@@ -22,10 +22,13 @@ from werkzeug.exceptions import FailedDependency, HTTPException
 from werkzeug.utils import secure_filename
 
 from config import load_config, Modalidad, Settings
-from planilla import fetch_planilla
+from planilla import fetch_planilla, timer_planilla
 
-app = Flask(__name__)
+app = Flask("entregas")
+app.logger.setLevel(logging.INFO)
 cfg: Settings = load_config()
+
+timer_planilla.start()
 
 File = collections.namedtuple('File', ['content', 'filename'])
 EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}

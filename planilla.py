@@ -1,3 +1,4 @@
+import logging
 import collections
 import threading
 import time
@@ -120,6 +121,7 @@ Planilla = collections.namedtuple('Planilla', [
 
 @cachetools.func.ttl_cache(maxsize=1, ttl=cfg.planilla_ttl.seconds)
 def fetch_planilla():
+    logging.getLogger("entregas").info("Fetching planilla")
     notas, datos_alumnos, datos_docentes = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS, SHEET_DATOS_DOCENTES])
     emails_alumnos,nombres_alumnos = parse_datos_alumnos(datos_alumnos)
     emails_docentes = parse_datos_docentes(datos_docentes)
@@ -150,6 +152,7 @@ def background_fetch():
 # se debe usar "lazy-apps=true" en la configuración. Las alternativas
 # "master=false" y @uwsgidecorators.{postfork,thread} mencionadas en
 # https://stackoverflow.com/a/32070594/848301 también funcionan, pero
-# con peores trade-offs.
-fetch_timer = threading.Thread(target=background_fetch, daemon=True)
-fetch_timer.start()
+# con peores trade-offs. Además, se debe llamar a start() en main.py
+# para que no haya race condition con la configuración de logging que
+# hace Flask.
+timer_planilla = threading.Thread(target=background_fetch, daemon=True)
