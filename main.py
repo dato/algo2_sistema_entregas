@@ -1,6 +1,5 @@
 import base64
 import collections
-import datetime
 import io
 import logging
 import mimetypes
@@ -13,11 +12,12 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from urllib.parse import urlencode
 
-import httplib2
-import oauth2client.client
-import urlfetch
+import requests
 
 from flask import Flask, render_template, request
+from flask_caching import Cache
+from google.auth.transport.requests import Request
+from google.oauth2 import credentials
 from werkzeug.exceptions import FailedDependency, HTTPException
 from werkzeug.utils import secure_filename
 
@@ -26,8 +26,11 @@ from planilla import fetch_planilla, timer_planilla
 
 app = Flask("entregas")
 app.logger.setLevel(logging.INFO)
-cfg: Settings = load_config()
 
+cfg: Settings = load_config()
+cache: Cache = Cache(config={"CACHE_TYPE": "simple"})
+
+cache.init_app(app)
 timer_planilla.start()
 
 File = collections.namedtuple('File', ['content', 'filename'])
@@ -148,21 +151,30 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
 
 
 def get_oauth_credentials():
-    """Refresca y devuelve nuestras credenciales OAuth.
+    """Devuelve nuestras credenciales OAuth.
     """
-    # N.B.: siempre re-generamos el token de acceso porque este script es
-    # stateless y no guarda las credenciales en ningún sitio. Todo bien con eso
-    # mientras no alcancemos el límite de refresh() de Google (pero no publican
-    # cuál es).
-    creds = oauth2client.client.OAuth2Credentials(
-        "",
-        cfg.oauth_client_id,
-        cfg.oauth_client_secret.get_secret_value(),
-        cfg.oauth_refresh_token.get_secret_value(),
-        datetime.datetime(2015, 1, 1),
-        "https://accounts.google.com/o/oauth2/token", "corrector/1.0")
+    key = "oauth2_credentials"
+    creds = cache.get(key)
 
-    creds.refresh(httplib2.Http())
+    if creds is None:
+        app.logger.info("Loading OAuth2 credentials")
+    elif not creds.valid:
+        app.logger.info("Refreshing OAuth2 credentials")
+    else:
+        return creds
+
+    # Siempre creamos un nuevo objeto Credentials() para
+    # asegurarnos que no llamamos refresh() en uno que se
+    # pueda estar usando en otro thread.
+    creds = credentials.Credentials(
+        token=None,
+        client_id=cfg.oauth_client_id,
+        client_secret=cfg.oauth_client_secret.get_secret_value(),
+        refresh_token=cfg.oauth_refresh_token.get_secret_value(),
+        token_uri="https://accounts.google.com/o/oauth2/token")
+
+    creds.refresh(Request())  # FIXME: catch UserAccessTokenError.
+    cache.set(key, creds)
     return creds
 
 
@@ -231,18 +243,19 @@ def post():
 
 
 def validate_captcha():
-    response = urlfetch.fetch(
-        url='https://www.google.com/recaptcha/api/siteverify',
-        params=urlencode({
-            "secret": cfg.recaptcha_secret.get_secret_value(),
-            "remoteip": request.remote_addr,
-            "response": request.form["g-recaptcha-response"],
-        }),
-        method="POST",
-    )
+    resp = requests.post("https://www.google.com/recaptcha/api/siteverify",
+                         data={"secret": cfg.recaptcha_secret.get_secret_value(),
+                               "remoteip": request.remote_addr,
+                               "response": request.form["g-recaptcha-response"]})
 
-    if not response.json['success']:
-        raise InvalidForm('Falló la validación del captcha')
+    if resp.ok:
+        json = resp.json()
+    else:
+        resp.raise_for_status()  # Lanza excepción descriptiva para 4xx y 5xx.
+
+    if not json["success"]:
+        msg = ", ".join(json.get("error-codes", ["unknown error"]))
+        raise InvalidForm(f"Falló la validación del captcha ({msg})")
 
 
 def get_docente(correctores, padron_o_grupo, planilla, tp):
