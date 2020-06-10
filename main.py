@@ -136,7 +136,7 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
     if not cfg.test:
         creds = get_oauth_credentials()
         xoauth2_tok = "user=%s\1" "auth=Bearer %s\1\1" % (cfg.sender.email,
-                                                          creds.access_token)
+                                                          creds.token)
         xoauth2_b64 = base64.b64encode(xoauth2_tok.encode("ascii")).decode("ascii")
 
         server = smtplib.SMTP("smtp.gmail.com", 587)
