@@ -47,17 +47,14 @@ import zipfile
 import httplib2
 import oauth2client.client
 
-import pull_requests as pullreq
+from github import GithubException
+from alu_repos import AluRepo
 
 ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
 SKEL_DIR = ROOT_DIR / os.environ["CORRECTOR_SKEL"]
 DATA_DIR = ROOT_DIR / os.environ["CORRECTOR_TPS"]
 WORKER_BIN = ROOT_DIR / os.environ["CORRECTOR_WORKER"]
 GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
-
-# Para el sistema de pull requests.
-REPO_TSV = ROOT_DIR / "conf" / "fiubatp.tsv"
-REPO_DIR = ROOT_DIR / os.environ["CORRECTOR_REPOS"]
 
 MAX_ZIP_SIZE = 1024 * 1024  # 1 MiB
 PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
@@ -169,27 +166,28 @@ def procesar_entrega(msg):
   output = stdout.decode("utf-8")
   retcode = worker.wait()
 
-  if TODO_OK_REGEX.search(output) and REPO_TSV.exists():
-    # Sincronizar la entrega con los repositorios individuales.
-    pullreq_url = None
-    repodir = REPO_DIR / padron
-    try:
-      pullreq_url = pullreq.update_repo(tp_id, repodir, moss.location(), REPO_TSV)
-    except Exception as ex:
-      print(f"Error al exportar a repositorio individual: {ex}", file=sys.stderr)
-
-    if pullreq_url:
-      # Insertar la URL de la pull request en el mensaje. Es medio hairy porque
-      # hay que insertarlo después del Todo OK. TODO: migrate to Jinja templates.
-      pre, post = TODO_OK_REGEX.split(output, 1)
-      message = "URL para crear pull request de la entrega (consultar docente):"
-      output = f"{pre}Todo OK\n\n{message}\n{pullreq_url}{post}"
-
-  if retcode == 0:
-    send_reply(msg, output + "\n\n" +
-               "-- \nURL de esta entrega (para uso docente):\n" + moss.url())
-  else:
+  if retcode != 0:
     raise ErrorInterno(output)
+
+  if TODO_OK_REGEX.search(output):
+    try:
+      # Sincronizar la entrega con los repositorios individuales.
+      alu_repo = AluRepo()
+      alu_repo.ensure_exists(skel_repo="algorw-alu/algo2_tps")
+      alu_repo.sync(moss.location(), tp_id)
+    except (KeyError, ValueError):
+      pass
+    except GithubException as ex:
+      print(f"error al sincronizar: {ex}", file=sys.stderr)
+    else:
+      if alu_repo.has_reviewer():
+        # Insertar, por el momento, la URL del repositorio.
+        # TODO: insertar URL para un pull request si es el primer Todo OK.
+        message = "Esta entrega fue importada a:"
+        output = TODO_OK_REGEX.sub(rf"\g<0>\n{message}\n{alu_repo.url}", output)
+
+  firma = "URL de esta entrega (para uso docente):\n" + moss.url()
+  send_reply(msg, f"{output}\n\n-- \n{firma}")
 
 
 def guess_tp(subject):
