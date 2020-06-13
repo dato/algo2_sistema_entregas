@@ -194,7 +194,13 @@ def get_padron_str(subject):
   matches = PADRON_REGEX.findall(subject)
 
   if matches:
-    return "_".join(sorted(matches))
+    # Los padrones suelen ser numéricos, pero técnicamnete nada obliga
+    # a ello. Para ordenar ascendentemente cadenas que son casi siempre
+    # números, podemos usar "0>{maxlen}" como key, que añade ceros a la
+    # izquierda para dar a todos el mismo ancho.
+    maxlen = max(len(x) for x in matches)
+    matches = sorted(matches, key=lambda s: f"{s:0>{maxlen}}")
+    return "_".join(matches)
 
   raise ErrorAlumno("no se encontró número de legajo en el asunto")
 
