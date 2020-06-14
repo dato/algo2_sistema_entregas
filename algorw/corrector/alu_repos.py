@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """Clase AluRepo para manejar los repositorios individuales y grupales.
 """
 
