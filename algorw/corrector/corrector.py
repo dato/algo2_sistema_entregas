@@ -116,18 +116,20 @@ def procesar_entrega(msg):
   """
   _, addr_from = email.utils.parseaddr(msg["From"])
 
-  if addr_from in IGNORE_ADDRESSES:
+  # Ignoramos los mails que no son para el corrector automático.
+  if GMAIL_ACCOUNT not in msg["To"]:
     sys.stderr.write("Ignorando email de {}\n".format(addr_from))
     return
 
-  tp_id = guess_tp(msg["Subject"])
-  padron = get_padron_str(msg["Subject"])
+  subj = msg["Subject"]
+  tp_id = guess_tp(subj)
+  padron = get_padron_str(subj)
   zip_obj = find_zip(msg)
   skel_dir = SKEL_DIR / tp_id
 
   moss = Moss(DATA_DIR, tp_id, padron, msg["Date"])
 
-  if AUSENCIA_REGEX.match(subj):
+  if AUSENCIA_REGEX.search(subj):
     # No es una entrega real, por tanto no se envía al worker.
     for path, zip_info in zip_walk(zip_obj):
       moss.save_data(path, zip_obj.read(zip_info))
@@ -215,7 +217,13 @@ def get_padron_str(subject):
   matches = PADRON_REGEX.findall(subject)
 
   if matches:
-    return "_".join(sorted(matches))
+    # Los padrones suelen ser numéricos, pero técnicamnete nada obliga
+    # a ello. Para ordenar ascendentemente cadenas que son casi siempre
+    # números, podemos usar "0>{maxlen}" como key, que añade ceros a la
+    # izquierda para dar a todos el mismo ancho.
+    maxlen = max(len(x) for x in matches)
+    matches = sorted(matches, key=lambda s: f"{s:0>{maxlen}}")
+    return "_".join(matches)
 
   raise ErrorAlumno("no se encontró número de legajo en el asunto")
 
@@ -373,14 +381,11 @@ def send_reply(orig_msg, reply_text):
   reply.set_payload(reply_text, "utf-8")
 
   reply["From"] = GMAIL_ACCOUNT
-  reply["To"] = orig_msg["From"]
+  reply["To"] = orig_msg["To"]
   reply["Cc"] = orig_msg.get("Cc", "")
   reply["Subject"] = "Re: " + orig_msg["Subject"]
+  reply["Reply-To"] = orig_msg.get("Reply-To", "")
   reply["In-Reply-To"] = orig_msg["Message-ID"]
-
-  # Poniendo en copia a la cuenta del corrector se consigue que sus respuestas
-  # pasen de nuevo los filtros de Gmail y se reenvíen al ayudante apropiado.
-  reply["Bcc"] = GMAIL_ACCOUNT
 
   creds = get_oauth_credentials()
   xoauth2_tok = "user=%s\1" "auth=Bearer %s\1\1" % (GMAIL_ACCOUNT,
