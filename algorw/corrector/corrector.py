@@ -172,7 +172,7 @@ def procesar_entrega(msg):
   if TODO_OK_REGEX.search(output):
     try:
       # Sincronizar la entrega con los repositorios individuales.
-      alu_repo = AluRepo()
+      alu_repo = AluRepo.from_legajos(padron.split("_"), tp_id)
       alu_repo.ensure_exists(skel_repo="algorw-alu/algo2_tps")
       alu_repo.sync(moss.location(), tp_id)
     except (KeyError, ValueError):
@@ -184,7 +184,8 @@ def procesar_entrega(msg):
         # Insertar, por el momento, la URL del repositorio.
         # TODO: insertar URL para un pull request si es el primer Todo OK.
         message = "Esta entrega fue importada a:"
-        output = TODO_OK_REGEX.sub(rf"\g<0>\n{message}\n{alu_repo.url}", output)
+        output = TODO_OK_REGEX.sub(
+            rf"\g<0>\n\n{message}\n{alu_repo.url}/tree/{tp_id}", output)
 
   firma = "URL de esta entrega (para uso docente):\n" + moss.url()
   send_reply(msg, f"{output}\n\n-- \n{firma}")

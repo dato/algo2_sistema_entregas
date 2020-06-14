@@ -59,11 +59,7 @@ class AluRepo:
     ):
         """Constructor de la clase AluRepo.
 
-        Normalmente no se usa directamente, sino que se usa uno de:
-
-          • AluRepo.from_legajo
-          • AluRepo.from_grupo
-          • AluRepo.from_legajos
+        Normalmente no se usa directamente, sino que se usa AluRepo.from_legajos.
         """
         self.gh_repo = None
         self.legajos = set(legajos)
@@ -71,70 +67,20 @@ class AluRepo:
         self.github_users = github_users or [DEFAULT_GHUSER]
 
     @classmethod
-    def from_legajo(
-        cls: Type[T], legajo: str, /, tp_id: str = None, *, force_column: str = None
-    ) -> T:
-        """Devuelve el AluRepo correspondiente a un legajo y entrega.
-
-        Si se especifica una entrega con `tp_id`, se busca en la configuración
-        qué columna de la planilla corresponde. Si no se indica entrega, el
-        repositorio se busca en la columna DEFAULT_COLUMN, o `force_column` si
-        se especifica.
-
-        ==> Este método es el apropiado para entregas individuales, y funciona
-            también para grupos, componiendo los legajos en una sola cadena,
-            separados por caracter subrayado ("12345_123456", etc.).
+    def from_legajos(cls: Type[T], legajos: List[str], tp_id: str, /) -> T:
+        """Devuelve el AluRepo correspondiente a un legajo (o legajos) y entrega.
 
         Raises:
           KeyError si no se encuentra el legajo
-          ValueError si no hay repositorio configurado
-        """
-        if tp_id is not None and force_column is not None:
-            raise ValueError("tp_id y force_column son incompatibles")
-
-        column = cls.DEFAULT_COLUMN if force_column is None else force_column
-
-        # TODO: mover esto a repos.yml
-        if tp_id in {"abb", "hash", "heap", "tp2", "tp3"} or "_" in legajo:
-            column = "Repo2"
-
-        return cls.from_legajos(legajo.split("_"), column=column)
-
-    @classmethod
-    def from_grupo(cls: Type[T], group_id: List[str] = None) -> T:
-        """Devuelve el objeto AluRepo correspondiente a un grupo.
-
-        ==> Este es el mejor método para entregas grupales, si se sabe el nombre
-            del grupo.
-
-        Raises:
-          KeyError si no se encuentra el legajo
-          ValueError si no hay repositorio configurado, o no es único
-        """
-        legajos = []
-
-        with open(PLANILLA_TSV, newline="") as fileobj:
-            for row in csv.DictReader(fileobj, dialect="excel-tab"):
-                if row["Grupo"] == group_id:
-                    legajos.append(row["Legajo"])
-
-        if not legajos:
-            raise KeyError(f"no se encontró grupo {group_id} en la planilla")
-
-        return cls.from_legajos(legajos, column="Repo2")
-
-    @classmethod
-    def from_legajos(cls: Type[T], legajos: List[str], /, *, column: str) -> T:
-        """Función genérica para obtener un repositorio.
-
-        Si no se especifica force_column, se usa DEFAULT_COLUMN. Si legajos
-        tiene más de un elemento, pero los repositorios no coinciden, se lanza
-        ValueError.
-
-        Esta función no se debería usar directamente, y debería preferirsse una
-        de las dos anteriores.
+          ValueError si no hay repositorio configurado, o si los repositorios
+              no coinciden para todos los legajos.
         """
         rows = []
+        column = cls.DEFAULT_COLUMN
+
+        # TODO: mover esto a repos.yml
+        if tp_id in {"abb", "hash", "heap", "tp2", "tp3"}:
+            column = "Repo2"
 
         with open(PLANILLA_TSV, newline="") as fileobj:
             for row in csv.DictReader(fileobj, dialect="excel-tab"):
