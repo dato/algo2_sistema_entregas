@@ -47,6 +47,9 @@ import zipfile
 import httplib2
 import oauth2client.client
 
+from github import GithubException
+from alu_repos import AluRepo
+
 ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
 SKEL_DIR = ROOT_DIR / os.environ["CORRECTOR_SKEL"]
 DATA_DIR = ROOT_DIR / os.environ["CORRECTOR_TPS"]
@@ -56,6 +59,7 @@ GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
 MAX_ZIP_SIZE = 1024 * 1024  # 1 MiB
 PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
+TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
 
 GMAIL_ACCOUNT = os.environ.get("CORRECTOR_ACCOUNT")
 CLIENT_ID = os.environ.get("CORRECTOR_OAUTH_CLIENT")
@@ -166,11 +170,30 @@ def procesar_entrega(msg):
   moss.commit_emoji(output)
   moss.flush()
 
-  if retcode == 0:
-    send_reply(msg, ai_corrector.vida_corrector(tp_id) + output + "\n\n" +
-               "-- \nURL de esta entrega (para uso docente):\n" + moss.url())
-  else:
+  if retcode != 0:
     raise ErrorInterno(output)
+
+  if TODO_OK_REGEX.search(output):
+    try:
+      # Sincronizar la entrega con los repositorios individuales.
+      alu_repo = AluRepo.from_legajos(padron.split("_"), tp_id)
+      alu_repo.ensure_exists(skel_repo="algorw-alu/algo2_tps")
+      alu_repo.sync(moss.location(), tp_id)
+    except (KeyError, ValueError):
+      pass
+    except GithubException as ex:
+      print(f"error al sincronizar: {ex}", file=sys.stderr)
+    else:
+      if alu_repo.has_reviewer():
+        # Insertar, por el momento, la URL del repositorio.
+        # TODO: insertar URL para un pull request si es el primer Todo OK.
+        message = "Esta entrega fue importada a:"
+        output = TODO_OK_REGEX.sub(
+            rf"\g<0>\n\n{message}\n{alu_repo.url}/tree/{tp_id}", output)
+
+  quote = ai_corrector.vida_corrector(tp_id)
+  firma = "URL de esta entrega (para uso docente):\n" + moss.url()
+  send_reply(msg, f"{quote}{output}\n\n-- \n{firma}")
 
 
 def guess_tp(subject):
@@ -198,7 +221,13 @@ def get_padron_str(subject):
   matches = PADRON_REGEX.findall(subject)
 
   if matches:
-    return "_".join(sorted(matches))
+    # Los padrones suelen ser numéricos, pero técnicamnete nada obliga
+    # a ello. Para ordenar ascendentemente cadenas que son casi siempre
+    # números, podemos usar "0>{maxlen}" como key, que añade ceros a la
+    # izquierda para dar a todos el mismo ancho.
+    maxlen = max(len(x) for x in matches)
+    matches = sorted(matches, key=lambda s: f"{s:0>{maxlen}}")
+    return "_".join(matches)
 
   raise ErrorAlumno("no se encontró número de legajo en el asunto")
 
@@ -305,6 +334,11 @@ class Moss:
     self._dest.mkdir(parents=True)
     self._date = subj_date  # XXX(dato): verify RFC822
     self._commit_message = f"New {tp_id} upload from {padron}"
+
+  def location(self):
+    """Directorio donde se guardaron los archivos.
+    """
+    return self._dest
 
   def url(self):
     short_rev = "git show -s --pretty=tformat:%h"
