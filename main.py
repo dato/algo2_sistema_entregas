@@ -229,7 +229,7 @@ def post():
     validate_grupo(planilla, padron_o_grupo, tp)
 
     docente = get_docente(planilla.correctores, padron_o_grupo, planilla, tp)
-    email_docente = planilla.emails_docentes[docente]
+    email_docente = planilla.emails_docentes[docente] if docente is not None else ""
     padrones = get_padrones(planilla, padron_o_grupo)
     emails_alumno = get_emails_alumno(planilla, padrones)
     nombres_alumnos = get_nombres_alumnos(planilla, padrones)
@@ -260,7 +260,7 @@ def validate_captcha():
 
 def get_docente(correctores, padron_o_grupo, planilla, tp):
     if cfg.entregas[tp] == Modalidad.PARCIALITO:
-        return ""  # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
+        return None  # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
     if padron_o_grupo not in correctores:
         raise FailedDependency(f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
 
