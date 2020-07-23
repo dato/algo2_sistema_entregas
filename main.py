@@ -10,7 +10,6 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from urllib.parse import urlencode
 
 import requests
 
@@ -45,12 +44,17 @@ class InvalidForm(Exception):
     """
 
 
+@app.context_processor
+def inject_cfg():
+    return {"cfg": cfg}
+
+
 @app.route("/", methods=["GET"])
 def get():
     planilla = fetch_planilla()
-    return render("index.html",
-                  entregas=cfg.entregas,
-                  correctores=planilla.correctores)
+    return render_template("index.html",
+                           entregas=cfg.entregas,
+                           correctores=planilla.correctores)
 
 
 @app.errorhandler(Exception)
@@ -62,7 +66,7 @@ def err(error):
         code = 500
         message = f"{error.__class__.__name__}: {error}"
     logging.exception(error)
-    return render("result.html", error=message), code
+    return render_template("result.html", error=message), code
 
 
 @app.errorhandler(InvalidForm)
@@ -70,11 +74,7 @@ def warn_and_render(ex):
     """Error menos verboso que err(), apropiado para excepciones de usuario.
     """
     logging.warn(f"InvalidForm: {ex}")
-    return render("result.html", error=ex), 422  # Unprocessable Entity
-
-
-def render(name, **params):
-    return render_template(name, cfg=cfg, **params)
+    return render_template("result.html", error=ex), 422  # Unprocessable Entity
 
 
 def archivo_es_permitido(nombre):
@@ -240,10 +240,11 @@ def post():
 
     email = sendmail(emails_alumno, nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
 
-    return render("result.html",
-                  tp=tp,
-                  email='\n'.join(f"{k}: {v}"
-                                  for k, v in email.items()) if cfg.test else None)
+    return render_template("result.html",
+                           tp=tp,
+                           email='\n'.join(f"{k}: {v}"
+                                           for k, v in email.items())
+                                 if cfg.test else None)
 
 
 def validate_captcha():
