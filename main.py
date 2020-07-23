@@ -21,6 +21,9 @@ from google.oauth2 import credentials
 from werkzeug.exceptions import FailedDependency, HTTPException
 from werkzeug.utils import secure_filename
 
+from algorw.app.queue import task_queue
+from algorw.app.tasks import EntregaTask, reload_fetchmail
+
 from config import load_config, Modalidad, Settings
 from planilla import fetch_planilla, timer_planilla
 
@@ -147,6 +150,7 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
         server.send_message(correo)
         server.close()
 
+    task_queue.enqueue(reload_fetchmail, EntregaTask(subject=subject_text))
     return correo
 
 
