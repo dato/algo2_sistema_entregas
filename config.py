@@ -5,11 +5,7 @@ from typing import Dict
 
 import yaml
 
-from pydantic import (
-    BaseSettings,
-    NameEmail,
-    SecretStr,
-)
+from pydantic import BaseSettings, NameEmail, SecretStr
 
 
 class Modalidad(str, Enum):

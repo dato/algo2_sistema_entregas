@@ -22,9 +22,9 @@ from werkzeug.utils import secure_filename
 
 from algorw.app.queue import task_queue
 from algorw.app.tasks import EntregaTask, reload_fetchmail
-
-from config import load_config, Modalidad, Settings
+from config import Modalidad, Settings, load_config
 from planilla import fetch_planilla, timer_planilla
+
 
 app = Flask("entregas")
 app.logger.setLevel(logging.INFO)
@@ -98,7 +98,8 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
     correo["Cc"] = email_docente
     correo["Bcc"] = cfg.sender.email
     correo["Reply-To"] = correo["To"]  # Responder a los alumnos
-    subject_text = '{} - {} - {}'.format(tp, ', '.join(padrones), ', '.join(nombres_alumnos))
+    subject_text = "{tp} - {padrones} - {nombres}".format(
+        tp=tp, padrones=", ".join(padrones), nombres=", ".join(nombres_alumnos))
 
     if not files:
         # Se asume que es una ausencia, se escribe la justificación dentro
@@ -114,8 +115,8 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
     correo.attach(MIMEText('\n'.join([tp,
                                       '\n'.join(emails_alumno),
                                       f'\n{body}\n' if body else '',
-                                      f'-- \n{cfg.title} - {request.url}',
-    ]), 'plain'))
+                                      f'-- \n{cfg.title} - {request.url}']),
+                           'plain'))
 
     for f in files:
         # Tomado de: https://docs.python.org/3.5/library/email-examples.html#id2
@@ -138,8 +139,7 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
 
     if not cfg.test:
         creds = get_oauth_credentials()
-        xoauth2_tok = "user=%s\1" "auth=Bearer %s\1\1" % (cfg.sender.email,
-                                                          creds.token)
+        xoauth2_tok = f"user={cfg.sender.email}\1" f"auth=Bearer {creds.token}\1\1"
         xoauth2_b64 = base64.b64encode(xoauth2_tok.encode("ascii")).decode("ascii")
 
         server = smtplib.SMTP("smtp.gmail.com", 587)
@@ -188,7 +188,7 @@ def get_padrones(planilla, padron_o_grupo):
 
     # Es un grupo.
     if padron_o_grupo in planilla.grupos:
-        return [padron for padron in planilla.grupos[padron_o_grupo]]
+        return list(planilla.grupos[padron_o_grupo])
 
     # Es un padrón.
     return [padron_o_grupo]
@@ -238,7 +238,8 @@ def post():
     emails_alumno = get_emails_alumno(planilla, padrones)
     nombres_alumnos = get_nombres_alumnos(planilla, padrones)
 
-    email = sendmail(emails_alumno, nombres_alumnos, email_docente, tp.upper(), padrones, files, body)
+    email = sendmail(emails_alumno, nombres_alumnos, email_docente,
+                     tp.upper(), padrones, files, body)
 
     return render_template("result.html",
                            tp=tp,
@@ -265,9 +266,11 @@ def validate_captcha():
 
 def get_docente(correctores, padron_o_grupo, planilla, tp):
     if cfg.entregas[tp] == Modalidad.PARCIALITO:
-        return None  # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
+        # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
+        return None
     if padron_o_grupo not in correctores:
-        raise FailedDependency(f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
+        raise FailedDependency(
+            f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
 
     if padron_o_grupo in planilla.grupos or cfg.entregas[tp] != Modalidad.GRUPAL:
         return correctores[padron_o_grupo]
