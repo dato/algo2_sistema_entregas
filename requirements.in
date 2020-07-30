@@ -4,6 +4,7 @@ cachetools==4.*
 email-validator==1.*  # Para pydantic.NameEmail
 gspread==3.1.*
 google-auth==1.*
+oauth2client==4.1.*
 pydantic==1.*
 python-dotenv==0.13.*
 pyyaml==5.*
