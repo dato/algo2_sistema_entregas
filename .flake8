@@ -1,0 +1,21 @@
+;; No pyproject.toml support: https://gitlab.com/pycqa/flake8/-/issues/428
+[flake8]
+max_line_length = 88
+inline_quotes = double
+no_accept_encodings = true
+docstring_convention = google
+
+# B014: Redundant exception types in except
+# D1xx: Missing docstrings ¯\_(ツ)_/¯
+# D200: One-line docstring should fit on one line with quotes.
+# P101: format string does contain unindexed parameters
+extend-ignore = B014,D1,D200,P101
+
+# E111: indentation is not a multiple of four
+# E114: indentation is not a multiple of four (comment)
+# E501: line too long
+# Q000: Remove bad quotes
+per-file-ignores =
+    main.py:Q000
+    planilla.py:Q000
+    algorw/corrector/ai_corrector.py:E501

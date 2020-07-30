@@ -1,0 +1,20 @@
+[tool.isort]
+line_length = 88
+virtual_env = "venv"
+multi_line_output = 3
+use_parentheses = true
+balanced_wrapping = true
+include_trailing_comma = true
+order_by_type = true
+lines_after_imports = 2
+lines_between_types = 1
+
+[tool.black]
+include = '''
+/(
+| config.py
+| wsgi.py
+| algorw/.+
+)$
+'''
+target-version = ['py38']

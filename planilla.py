@@ -1,13 +1,14 @@
-import logging
 import collections
+import logging
 import threading
 import time
 
-import gspread
 import cachetools.func
-from oauth2client.service_account import ServiceAccountCredentials
+import gspread
 
 from config import load_config
+from oauth2client.service_account import ServiceAccountCredentials
+
 
 SCOPE = ['https://spreadsheets.google.com/feeds']
 SHEET_NOTAS = 'Notas'
@@ -19,6 +20,7 @@ __all__ = [
 ]
 
 cfg = load_config()
+
 
 def fetch_sheet(ranges):
     credentials = ServiceAccountCredentials.from_json_keyfile_name(
@@ -122,8 +124,9 @@ Planilla = collections.namedtuple('Planilla', [
 @cachetools.func.ttl_cache(maxsize=1, ttl=cfg.planilla_ttl.seconds)
 def fetch_planilla():
     logging.getLogger("entregas").info("Fetching planilla")
-    notas, datos_alumnos, datos_docentes = fetch_sheet([SHEET_NOTAS, SHEET_DATOS_ALUMNOS, SHEET_DATOS_DOCENTES])
-    emails_alumnos,nombres_alumnos = parse_datos_alumnos(datos_alumnos)
+    notas, datos_alumnos, datos_docentes = fetch_sheet(
+        [SHEET_NOTAS, SHEET_DATOS_ALUMNOS, SHEET_DATOS_DOCENTES])
+    emails_alumnos, nombres_alumnos = parse_datos_alumnos(datos_alumnos)
     emails_docentes = parse_datos_docentes(datos_docentes)
     correctores, grupos = parse_notas(notas)
     return Planilla(
@@ -133,6 +136,7 @@ def fetch_planilla():
         nombres_alumnos,
         emails_docentes,
     )
+
 
 # cachetools.ttl_cache nos asegura que jamás se use una planilla más
 # antigua de lo establecido. Sin embargo, de por sí, con ttl_cache
@@ -147,6 +151,7 @@ def background_fetch():
     while True:
         fetch_planilla()  # Thread-safe gracias a cachetools.ttl_cache.
         time.sleep(55)
+
 
 # Nota: para que esto funcione bien en uWSGI y su modelo de preforking,
 # se debe usar "lazy-apps=true" en la configuración. Las alternativas
