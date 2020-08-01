@@ -54,9 +54,9 @@ def inject_cfg():
 @app.route("/", methods=["GET"])
 def get():
     planilla = fetch_planilla()
-    return render_template("index.html",
-                           entregas=cfg.entregas,
-                           correctores=planilla.correctores)
+    return render_template(
+        "index.html", entregas=cfg.entregas, correctores=planilla.correctores
+    )
 
 
 @app.errorhandler(Exception)
@@ -247,18 +247,22 @@ def post():
 
     email = sendmail(tp.upper(), alulist, docente, files, body)
 
-    return render_template("result.html",
-                           tp=tp,
-                           email="\n".join(f"{k}: {v}"
-                                           for k, v in email.items())
-                                 if cfg.test else None)
+    return render_template(
+        "result.html",
+        tp=tp,
+        email="\n".join(f"{k}: {v}" for k, v in email.items()) if cfg.test else None,
+    )
 
 
 def validate_captcha():
-    resp = requests.post("https://www.google.com/recaptcha/api/siteverify",
-                         data={"secret": cfg.recaptcha_secret.get_secret_value(),
-                               "remoteip": request.remote_addr,
-                               "response": request.form["g-recaptcha-response"]})
+    resp = requests.post(
+        "https://www.google.com/recaptcha/api/siteverify",
+        data={
+            "secret": cfg.recaptcha_secret.get_secret_value(),
+            "remoteip": request.remote_addr,
+            "response": request.form["g-recaptcha-response"],
+        },
+    )
 
     if resp.ok:
         json = resp.json()
