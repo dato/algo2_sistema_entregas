@@ -3,7 +3,7 @@ Flask-Caching==1.*
 cachetools==4.*
 email-validator==1.*  # Para pydantic.NameEmail
 GitPython==3.*
-gspread==3.1.*
+google-api-python-client==1.*
 google-auth==1.*
 oauth2client==4.1.*
 pydantic==1.*

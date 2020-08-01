@@ -13,6 +13,8 @@ lines_between_types = 1
 include = '''
 /(
 | config.py
+| main.py
+| planilla.py
 | wsgi.py
 | algorw/.+
 )$

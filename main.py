@@ -10,6 +10,7 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from typing import List, Optional
 
 import requests
 
@@ -22,6 +23,7 @@ from werkzeug.utils import secure_filename
 
 from algorw.app.queue import task_queue
 from algorw.app.tasks import EntregaTask, reload_fetchmail
+from algorw.models import Alumne, Docente
 from config import Modalidad, Settings, load_config
 from planilla import fetch_planilla, timer_planilla
 
@@ -35,8 +37,8 @@ cache: Cache = Cache(config={"CACHE_TYPE": "simple"})
 cache.init_app(app)
 timer_planilla.start()
 
-File = collections.namedtuple('File', ['content', 'filename'])
-EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}
+File = collections.namedtuple("File", ["content", "filename"])
+EXTENSIONES_ACEPTADAS = {"zip", "tar", "gz", "pdf"}
 
 
 class InvalidForm(Exception):
@@ -52,9 +54,9 @@ def inject_cfg():
 @app.route("/", methods=["GET"])
 def get():
     planilla = fetch_planilla()
-    return render_template("index.html",
-                           entregas=cfg.entregas,
-                           correctores=planilla.correctores)
+    return render_template(
+        "index.html", entregas=cfg.entregas, correctores=planilla.correctores
+    )
 
 
 @app.errorhandler(Exception)
@@ -78,12 +80,11 @@ def warn_and_render(ex):
 
 
 def archivo_es_permitido(nombre):
-    return '.' in nombre and \
-           nombre.rsplit('.', 1)[1].lower() in EXTENSIONES_ACEPTADAS
+    return "." in nombre and nombre.rsplit(".", 1)[1].lower() in EXTENSIONES_ACEPTADAS
 
 
 def get_files():
-    files = request.files.getlist('files')
+    files = request.files.getlist("files")
     return [
         File(content=f.read(), filename=secure_filename(f.filename))
         for f in files
@@ -91,15 +92,26 @@ def get_files():
     ]
 
 
-def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files, body):
+def sendmail(
+    tp: str,
+    alulist: List[Alumne],
+    docente: Optional[Docente],
+    files: List[File],
+    body: str,
+) -> MIMEMultipart:
+    emails = sorted(x.correo for x in alulist)
+    nombres = sorted(x.nombre.split(",")[0].title() for x in alulist)
+    padrones = sorted(x.legajo for x in alulist)
     correo = MIMEMultipart()
     correo["From"] = str(cfg.sender)
-    correo["To"] = ", ".join(emails_alumno)
-    correo["Cc"] = email_docente
+    correo["To"] = ", ".join(emails)
+    if docente:
+        correo["Cc"] = docente.correo
     correo["Bcc"] = cfg.sender.email
     correo["Reply-To"] = correo["To"]  # Responder a los alumnos
     subject_text = "{tp} - {padrones} - {nombres}".format(
-        tp=tp, padrones=", ".join(padrones), nombres=", ".join(nombres_alumnos))
+        tp=tp, padrones=", ".join(padrones), nombres=", ".join(nombres)
+    )
 
     if not files:
         # Se asume que es una ausencia, se escribe la justificación dentro
@@ -112,11 +124,19 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
         subject_text += " (ausencia)"  # Permite al corrector omitir las pruebas.
 
     correo["Subject"] = subject_text
-    correo.attach(MIMEText('\n'.join([tp,
-                                      '\n'.join(emails_alumno),
-                                      f'\n{body}\n' if body else '',
-                                      f'-- \n{cfg.title} - {request.url}']),
-                           'plain'))
+    correo.attach(
+        MIMEText(
+            "\n".join(
+                [
+                    tp,
+                    "\n".join(emails),
+                    f"\n{body}\n" if body else "",
+                    f"-- \n{cfg.title} - {request.url}",
+                ]
+            ),
+            "plain",
+        )
+    )
 
     for f in files:
         # Tomado de: https://docs.python.org/3.5/library/email-examples.html#id2
@@ -124,9 +144,9 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
         ctype, encoding = mimetypes.guess_type(f.filename)
         if ctype is None or encoding is not None:
             # No pudimos adivinar, así que usamos un Content-Type genérico.
-            ctype = 'application/octet-stream'
-        maintype, subtype = ctype.split('/', 1)
-        if maintype == 'text':
+            ctype = "application/octet-stream"
+        maintype, subtype = ctype.split("/", 1)
+        if maintype == "text":
             msg = MIMEText(f.content, _subtype=subtype)
         else:
             msg = MIMEBase(maintype, subtype)
@@ -134,7 +154,7 @@ def sendmail(emails_alumno, nombres_alumnos, email_docente, tp, padrones, files,
             # Codificamos el payload en base 64.
             encoders.encode_base64(msg)
         # Set the filename parameter
-        msg.add_header('Content-Disposition', 'attachment', filename=f.filename)
+        msg.add_header("Content-Disposition", "attachment", filename=f.filename)
         correo.attach(msg)
 
     if not cfg.test:
@@ -175,84 +195,74 @@ def get_oauth_credentials():
         client_id=cfg.oauth_client_id,
         client_secret=cfg.oauth_client_secret.get_secret_value(),
         refresh_token=cfg.oauth_refresh_token.get_secret_value(),
-        token_uri="https://accounts.google.com/o/oauth2/token")
+        token_uri="https://accounts.google.com/o/oauth2/token",
+    )
 
     creds.refresh(Request())  # FIXME: catch UserAccessTokenError.
     cache.set(key, creds)
     return creds
 
 
-def get_padrones(planilla, padron_o_grupo):
-    if padron_o_grupo not in planilla.correctores:
-        raise InvalidForm(f"No se encuentra el alumno o grupo {padron_o_grupo}")
-
-    # Es un grupo.
-    if padron_o_grupo in planilla.grupos:
-        return list(planilla.grupos[padron_o_grupo])
-
-    # Es un padrón.
-    return [padron_o_grupo]
-
-
-def validate_grupo(planilla, padron_o_grupo, tp):
-    if padron_o_grupo in planilla.grupos and cfg.entregas[tp] == Modalidad.INDIVIDUAL:
-        raise InvalidForm(f"La entrega {tp} debe ser entregada de forma individual")
-
-
-def get_emails_alumno(planilla, padrones):
-    return [planilla.emails_alumnos[p] for p in padrones]
-
-
-def get_nombres_alumnos(planilla, padrones):
-    return [planilla.nombres_alumnos[p].split(',')[0].title() for p in padrones]
-
-
-@app.route('/', methods=['POST'])
+@app.route("/", methods=["POST"])
 def post():
-    planilla = fetch_planilla()
+    # Leer valores del formulario.
     try:
         validate_captcha()
-        tp = request.form['tp']
-        if tp not in cfg.entregas:
-            raise InvalidForm(f"La entrega {tp!r} es inválida")
-
+        tp = request.form["tp"]
         files = get_files()
-        body = request.form['body'] or ''
-        tipo = request.form['tipo']
-
-        if tipo == 'entrega' and not files:
-            raise InvalidForm('No se ha adjuntado ningún archivo con extensión válida.')
-        elif tipo == 'ausencia' and not body:
-            raise InvalidForm('No se ha adjuntado una justificación para la ausencia.')
-
-        padron_o_grupo = request.form['identificador']
+        body = request.form["body"] or ""
+        tipo = request.form["tipo"]
+        identificador = request.form["identificador"]
     except KeyError as ex:
         raise InvalidForm(f"Formulario inválido sin campo {ex.args[0]!r}") from ex
 
-    # Valida si la entrega es individual o grupal de acuerdo a lo ingresado.
-    validate_grupo(planilla, padron_o_grupo, tp)
+    # Obtener alumnes que realizan la entrega.
+    planilla = fetch_planilla()
+    try:
+        alulist = planilla.get_alulist(identificador)
+    except KeyError as ex:
+        raise InvalidForm(f"No se encuentra grupo o legajo {identificador!r}") from ex
 
-    docente = get_docente(planilla.correctores, padron_o_grupo, planilla, tp)
-    email_docente = planilla.emails_docentes[docente] if docente is not None else ""
-    padrones = get_padrones(planilla, padron_o_grupo)
-    emails_alumno = get_emails_alumno(planilla, padrones)
-    nombres_alumnos = get_nombres_alumnos(planilla, padrones)
+    # Validar varios aspectos de la entrega.
+    if tp not in cfg.entregas:
+        raise InvalidForm(f"La entrega {tp!r} es inválida")
+    elif len(alulist) > 1 and cfg.entregas[tp] != Modalidad.GRUPAL:
+        raise ValueError(f"La entrega {tp} debe ser individual")
+    elif tipo == "entrega" and not files:
+        raise InvalidForm("No se ha adjuntado ningún archivo con extensión válida.")
+    elif tipo == "ausencia" and not body:
+        raise InvalidForm("No se ha adjuntado una justificación para la ausencia.")
 
-    email = sendmail(emails_alumno, nombres_alumnos, email_docente,
-                     tp.upper(), padrones, files, body)
+    # Encontrar a le docente correspondiente.
+    if cfg.entregas[tp] == Modalidad.INDIVIDUAL:
+        docente = alulist[0].ayudante_indiv
+    elif cfg.entregas[tp] == Modalidad.GRUPAL:
+        docente = alulist[0].ayudante_grupal
+    else:
+        docente = None
 
-    return render_template("result.html",
-                           tp=tp,
-                           email='\n'.join(f"{k}: {v}"
-                                           for k, v in email.items())
-                                 if cfg.test else None)
+    if not docente and cfg.entregas[tp] != Modalidad.PARCIALITO:
+        legajos = ", ".join(x.legajo for x in alulist)
+        raise FailedDependency(f"No hay corrector para la entrega {tp} de {legajos}")
+
+    email = sendmail(tp.upper(), alulist, docente, files, body)
+
+    return render_template(
+        "result.html",
+        tp=tp,
+        email="\n".join(f"{k}: {v}" for k, v in email.items()) if cfg.test else None,
+    )
 
 
 def validate_captcha():
-    resp = requests.post("https://www.google.com/recaptcha/api/siteverify",
-                         data={"secret": cfg.recaptcha_secret.get_secret_value(),
-                               "remoteip": request.remote_addr,
-                               "response": request.form["g-recaptcha-response"]})
+    resp = requests.post(
+        "https://www.google.com/recaptcha/api/siteverify",
+        data={
+            "secret": cfg.recaptcha_secret.get_secret_value(),
+            "remoteip": request.remote_addr,
+            "response": request.form["g-recaptcha-response"],
+        },
+    )
 
     if resp.ok:
         json = resp.json()
@@ -262,23 +272,3 @@ def validate_captcha():
     if not json["success"]:
         msg = ", ".join(json.get("error-codes", ["unknown error"]))
         raise InvalidForm(f"Falló la validación del captcha ({msg})")
-
-
-def get_docente(correctores, padron_o_grupo, planilla, tp):
-    if cfg.entregas[tp] == Modalidad.PARCIALITO:
-        # XXX "Funciona" porque parse_datos_docentes() suele encontrar celdas vacías.
-        return None
-    if padron_o_grupo not in correctores:
-        raise FailedDependency(
-            f"No hay un corrector asignado para el padrón o grupo {padron_o_grupo}")
-
-    if padron_o_grupo in planilla.grupos or cfg.entregas[tp] != Modalidad.GRUPAL:
-        return correctores[padron_o_grupo]
-
-    # Es un alumno entregando de forma individual una entrega grupal,
-    # por el motivo que fuere.
-    # Buscamos su corrector de trabajos grupales.
-    padron = padron_o_grupo
-    for grupo in planilla.grupos:
-        if padron in planilla.grupos[grupo]:
-            return correctores[grupo]
