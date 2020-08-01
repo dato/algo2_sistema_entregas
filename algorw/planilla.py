@@ -48,11 +48,10 @@ class Planilla(PullDB):
         #  • 'g' + legajo (p.ej. "g98765") a su corrector grupal correspondiente
         #
         # Esto último se usa en las validaciones Javascript en el navegador.
-        self._correctores = {alu.grupo: alu.ayudante_grupal for alu in self._alulist}
-        self._correctores = {alu.legajo: alu.ayudante_indiv for alu in self._alulist}
-        self._correctores.update(
-            {f"g{alu.legajo}": alu.ayudante_grupal for alu in self._alulist}
-        )
+        por_grupo = {alu.grupo: alu.ayudante_grupal for alu in self._alulist}
+        por_legajo = {alu.legajo: alu.ayudante_indiv for alu in self._alulist}
+        por_grupal = {f"g{alu.legajo}": alu.ayudante_grupal for alu in self._alulist}
+        self._correctores = {**por_grupo, **por_legajo, **por_grupal}
 
     @property
     def correctores(self) -> Dict[str, str]:
