@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     test: bool
     title: str
     sender: NameEmail
+    job_queue: str = "default"
 
     spreadsheet_id: str
     planilla_ttl: timedelta
