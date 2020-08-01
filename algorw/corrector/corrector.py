@@ -27,12 +27,10 @@ Salida:
   - se guarda una copia de los archivos en DATA_DIR/<TP_ID>/<YYYY_CX>/<PADRON>.
 """
 
-import ai_corrector
 import datetime
 import email
 import email.message
 import email.policy
-import email.utils
 import io
 import os
 import pathlib
@@ -43,12 +41,17 @@ import sys
 import tarfile
 import zipfile
 
+from dotenv import load_dotenv
 from github import GithubException
 
-from alu_repos import AluRepo
 from config import Settings, load_config
 
 from .. import utils
+from ..common.tasks import CorrectorTask
+from . import ai_corrector
+
+
+load_dotenv()
 
 
 ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
@@ -84,33 +87,23 @@ class ErrorAlumno(Exception):
     """
 
 
-def main():
-    """Función principal.
+def corregir_entrega(task: CorrectorTask):
+    """Función de corrección principal.
 
     El flujo de la corrección se corta lanzando excepciones ErrorAlumno.
     """
-    os.umask(0o027)
-
-    msg = email.message_from_binary_file(sys.stdin.buffer, policy=email.policy.default)
+    msg = email.message_from_bytes(task.mensaje, policy=email.policy.default)
     try:
         procesar_entrega(msg)
     except ErrorAlumno as ex:
         send_reply(msg, "ERROR: {}.".format(ex))
     except ErrorInterno as ex:
         print(ex, file=sys.stderr)
-        sys.exit(1)  # Ensure message will not be deleted by fetchmail.
 
 
 def procesar_entrega(msg):
     """Recibe el mensaje del alumno y lanza el proceso de corrección.
     """
-    _, addr_from = email.utils.parseaddr(msg["From"])
-
-    # Ignoramos los mails que vienen del sistema de entregas.
-    if "Entregas Algoritmos 2" not in msg["From"]:
-        sys.stderr.write("Ignorando email de {}\n".format(addr_from))
-        return
-
     subj = msg["Subject"]
     tp_id = guess_tp(subj)
     padron = get_padron_str(subj)
@@ -172,7 +165,7 @@ def procesar_entrega(msg):
     if retcode != 0:
         raise ErrorInterno(output)
 
-    if TODO_OK_REGEX.search(output):
+    if TODO_OK_REGEX.search(output) and False:
         try:
             # Sincronizar la entrega con los repositorios individuales.
             alu_repo = AluRepo.from_legajos(padron.split("_"), tp_id)
@@ -385,7 +378,7 @@ def zip_datetime(info):
 def send_reply(orig_msg, reply_text):
     """Envía una cadena de texto como respuesta a un correo recibido.
     """
-    if cfg.test:
+    if cfg.test or True:
         print("ENVIARÍA: {}".format(reply_text), file=sys.stderr)
         return
 
@@ -401,9 +394,3 @@ def send_reply(orig_msg, reply_text):
     reply["In-Reply-To"] = orig_msg["Message-ID"]
 
     return utils.sendmail(reply, creds)
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-
-# vi:et:sw=2
