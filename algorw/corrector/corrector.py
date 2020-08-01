@@ -4,7 +4,8 @@
 
 Las entradas al script son:
 
-  - stdin: mensaje de correo enviado por el alumno
+  - CorrectorTask: un objeto en la cola de mensajes con toda la información
+    y contenido de la entrega
 
   - SKEL_DIR: un directorio con los archivos “base” de cada TP, p. ej. las
     pruebas de la cátedra y los archivos .h
@@ -13,7 +14,7 @@ Las entradas al script son:
 
 El workflow es:
 
-  - del mensaje entrante se detecta el identificador del TP (‘tp0’, ‘pila’,
+  - de la tarea entrante se tiene el identificador del TP (‘tp0’, ‘pila’,
     etc.) y el ZIP con la entrega
 
   - se ejecuta el worker, quien recibe por entrada estándar un archivo TAR
@@ -61,7 +62,6 @@ WORKER_BIN = ROOT_DIR / os.environ["CORRECTOR_WORKER"]
 GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
 
 MAX_ZIP_SIZE = 1024 * 1024  # 1 MiB
-PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
 
@@ -82,6 +82,7 @@ class ErrorInterno(Exception):
     """
 
 
+# TODO: eliminar esta clase una vez se valide todo en la página de entregas.
 class ErrorAlumno(Exception):
     """Excepción para cualquier error en la entrega.
     """
@@ -94,19 +95,19 @@ def corregir_entrega(task: CorrectorTask):
     """
     msg = email.message_from_bytes(task.mensaje, policy=email.policy.default)
     try:
-        procesar_entrega(msg)
+        procesar_entrega(task, msg)
     except ErrorAlumno as ex:
         send_reply(msg, "ERROR: {}.".format(ex))
     except ErrorInterno as ex:
         print(ex, file=sys.stderr)
 
 
-def procesar_entrega(msg):
+def procesar_entrega(task: CorrectorTask, msg):
     """Recibe el mensaje del alumno y lanza el proceso de corrección.
     """
     subj = msg["Subject"]
-    tp_id = guess_tp(subj)
-    padron = get_padron_str(subj)
+    tp_id = task.tp_id
+    padron = "_".join(task.legajos)
     zip_obj = find_zip(msg)
     skel_dir = SKEL_DIR / tp_id
 
@@ -187,42 +188,6 @@ def procesar_entrega(msg):
     quote = ai_corrector.vida_corrector(tp_id)
     firma = "URL de esta entrega (para uso docente):\n" + moss.url()
     send_reply(msg, f"{quote}{output}\n\n-- \n{firma}")
-
-
-def guess_tp(subject):
-    """Devuelve el identificador del TP de la entrega.
-
-    Por ejemplo, ‘tp0’ o ‘pila’.
-    """
-    subj_words = [w.lower() for w in re.split(r"[^_\w]+", subject)]
-    candidates = {p.name.lower(): p.name for p in SKEL_DIR.iterdir()}
-
-    for word in subj_words:
-        if word in candidates:
-            return candidates[word]
-
-    raise ErrorAlumno("no se encontró nombre del TP en el asunto")
-
-
-def get_padron_str(subject):
-    """Devuelve una cadena con el padrón, o padrones, de una entrega.
-
-    En el caso de entregas conjuntas, se devuelve PADRÓN1_PADRÓN2, con
-    PADRÓN1 < PADRÓN2.
-    """
-    subject = subject.replace(".", "")
-    matches = PADRON_REGEX.findall(subject)
-
-    if matches:
-        # Los padrones suelen ser numéricos, pero técnicamnete nada obliga
-        # a ello. Para ordenar ascendentemente cadenas que son casi siempre
-        # números, podemos usar "0>{maxlen}" como key, que añade ceros a la
-        # izquierda para dar a todos el mismo ancho.
-        maxlen = max(len(x) for x in matches)
-        matches = sorted(matches, key=lambda s: f"{s:0>{maxlen}}")
-        return "_".join(matches)
-
-    raise ErrorAlumno("no se encontró número de legajo en el asunto")
 
 
 def find_zip(msg):

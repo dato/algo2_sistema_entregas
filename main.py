@@ -100,7 +100,7 @@ def sendmail(
 ) -> MIMEMultipart:
     emails = sorted(x.correo for x in alulist)
     nombres = sorted(x.nombre.split(",")[0].title() for x in alulist)
-    padrones = sorted(x.legajo for x in alulist)
+    padrones = utils.sorted_strnum([x.legajo for x in alulist])
     correo = MIMEMultipart()
     correo["From"] = str(cfg.sender)
     correo["To"] = ", ".join(emails)
@@ -163,7 +163,7 @@ def sendmail(
         # copia local de algo2_entregas.
         utils.sendmail(correo, oauth_credentials())
 
-    task = CorrectorTask(mensaje=correo.as_bytes())
+    task = CorrectorTask(tp_id=tp.lower(), legajos=padrones, mensaje=correo.as_bytes())
     task_queue.enqueue(corregir_entrega, task)
     return correo
 
