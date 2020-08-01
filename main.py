@@ -10,6 +10,7 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate, make_msgid
 from typing import List, Optional
 
 import requests
@@ -123,7 +124,9 @@ def sendmail(
         files = [File(rawzip.getvalue(), f"{tp.lower()}_ausencia.zip")]
         subject_text += " (ausencia)"  # Permite al corrector omitir las pruebas.
 
+    correo["Date"] = formatdate()
     correo["Subject"] = subject_text
+    correo["Message-ID"] = make_msgid("entregas", "algorw.turing.pink")
     correo.attach(
         MIMEText(
             "\n".join(
