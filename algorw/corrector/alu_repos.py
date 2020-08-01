@@ -13,11 +13,11 @@ import tempfile
 from datetime import datetime, timezone
 from typing import Dict, List, Set, Type, TypeVar
 
-import git
+import git  # type: ignore
 import github
 
-from git.objects.fun import traverse_tree_recursive
-from git.util import stream_copy
+from git.objects.fun import traverse_tree_recursive  # type: ignore
+from git.util import stream_copy  # type: ignore
 from github import InputGitTreeElement
 from github.GitTree import GitTree as GithubTree
 from github.Repository import Repository as GithubRepo

@@ -15,9 +15,9 @@ from typing import List, Optional
 import requests
 
 from flask import Flask, render_template, request
-from flask_caching import Cache
-from google.auth.transport.requests import Request
-from google.oauth2 import credentials
+from flask_caching import Cache  # type: ignore
+from google.auth.transport.requests import Request  # type: ignore
+from google.oauth2 import credentials  # type: ignore
 from werkzeug.exceptions import FailedDependency, HTTPException
 from werkzeug.utils import secure_filename
 

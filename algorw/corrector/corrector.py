@@ -45,8 +45,8 @@ import sys
 import tarfile
 import zipfile
 
-import httplib2
-import oauth2client.client
+import httplib2  # type: ignore
+import oauth2client.client  # type: ignore
 
 from github import GithubException
 
