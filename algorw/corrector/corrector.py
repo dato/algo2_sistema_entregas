@@ -241,22 +241,6 @@ def get_padron_str(subject):
     raise ErrorAlumno("no se encontró número de legajo en el asunto")
 
 
-def id_cursada():
-    """Devuelve el identificador de la cursada según año y cuatrimestre.
-
-    El identificador es del tipo ‘2015_2’ o ‘2016_1’, donde el segundo elemento
-    indica el cuatrimestre.
-
-    El cuatrimestre es:
-
-        - 1 si la fecha es antes del 1 de agosto;
-        - 2 si es igual o posterior.
-    """
-    today = datetime.datetime.today()
-    cutoff = today.replace(month=8, day=1)
-    return "{}_{}".format(today.year, 1 if today < cutoff else 2)
-
-
 def find_zip(msg):
     """Busca un adjunto .zip en un mensaje y lo devuelve.
 
@@ -345,7 +329,7 @@ class Moss:
     """
 
     def __init__(self, pathobj, tp_id, padron, subj_date):
-        self._dest = pathobj / tp_id / id_cursada() / padron
+        self._dest = pathobj / tp_id / cfg.cuatri / padron
         shutil.rmtree(self._dest, ignore_errors=True)
         self._dest.mkdir(parents=True)
         self._date = subj_date  # XXX(dato): verify RFC822

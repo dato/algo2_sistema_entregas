@@ -2,7 +2,7 @@ test: false
 title: Algoritmos y Programación II - Entrega de TPs
 sender: Entregas Algoritmos 2 <tps.7541rw@gmail.com>
 
-cuatri: 2020_1
+cuatri: "2020_1"
 planilla_ttl: 1:00:00
 spreadsheet_id: 1VLjgpKCKTEgHylQjVT0noU0MBD4NvYgXnGfoGeCRsTQ
 service_account_jsonfile: service_account.json
