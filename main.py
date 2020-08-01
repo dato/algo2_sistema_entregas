@@ -37,8 +37,8 @@ cache: Cache = Cache(config={"CACHE_TYPE": "simple"})
 cache.init_app(app)
 timer_planilla.start()
 
-File = collections.namedtuple('File', ['content', 'filename'])
-EXTENSIONES_ACEPTADAS = {'zip', 'tar', 'gz', 'pdf'}
+File = collections.namedtuple("File", ["content", "filename"])
+EXTENSIONES_ACEPTADAS = {"zip", "tar", "gz", "pdf"}
 
 
 class InvalidForm(Exception):
@@ -80,12 +80,11 @@ def warn_and_render(ex):
 
 
 def archivo_es_permitido(nombre):
-    return '.' in nombre and \
-           nombre.rsplit('.', 1)[1].lower() in EXTENSIONES_ACEPTADAS
+    return "." in nombre and nombre.rsplit(".", 1)[1].lower() in EXTENSIONES_ACEPTADAS
 
 
 def get_files():
-    files = request.files.getlist('files')
+    files = request.files.getlist("files")
     return [
         File(content=f.read(), filename=secure_filename(f.filename))
         for f in files
@@ -145,9 +144,9 @@ def sendmail(
         ctype, encoding = mimetypes.guess_type(f.filename)
         if ctype is None or encoding is not None:
             # No pudimos adivinar, así que usamos un Content-Type genérico.
-            ctype = 'application/octet-stream'
-        maintype, subtype = ctype.split('/', 1)
-        if maintype == 'text':
+            ctype = "application/octet-stream"
+        maintype, subtype = ctype.split("/", 1)
+        if maintype == "text":
             msg = MIMEText(f.content, _subtype=subtype)
         else:
             msg = MIMEBase(maintype, subtype)
@@ -155,7 +154,7 @@ def sendmail(
             # Codificamos el payload en base 64.
             encoders.encode_base64(msg)
         # Set the filename parameter
-        msg.add_header('Content-Disposition', 'attachment', filename=f.filename)
+        msg.add_header("Content-Disposition", "attachment", filename=f.filename)
         correo.attach(msg)
 
     if not cfg.test:
@@ -196,22 +195,23 @@ def get_oauth_credentials():
         client_id=cfg.oauth_client_id,
         client_secret=cfg.oauth_client_secret.get_secret_value(),
         refresh_token=cfg.oauth_refresh_token.get_secret_value(),
-        token_uri="https://accounts.google.com/o/oauth2/token")
+        token_uri="https://accounts.google.com/o/oauth2/token",
+    )
 
     creds.refresh(Request())  # FIXME: catch UserAccessTokenError.
     cache.set(key, creds)
     return creds
 
 
-@app.route('/', methods=['POST'])
+@app.route("/", methods=["POST"])
 def post():
     # Leer valores del formulario.
     try:
         validate_captcha()
-        tp = request.form['tp']
+        tp = request.form["tp"]
         files = get_files()
-        body = request.form['body'] or ''
-        tipo = request.form['tipo']
+        body = request.form["body"] or ""
+        tipo = request.form["tipo"]
         identificador = request.form["identificador"]
     except KeyError as ex:
         raise InvalidForm(f"Formulario inválido sin campo {ex.args[0]!r}") from ex
@@ -249,7 +249,7 @@ def post():
 
     return render_template("result.html",
                            tp=tp,
-                           email='\n'.join(f"{k}: {v}"
+                           email="\n".join(f"{k}: {v}"
                                            for k, v in email.items())
                                  if cfg.test else None)
 

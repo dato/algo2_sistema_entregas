@@ -16,5 +16,4 @@ extend-ignore = B014,D1,D200,P101
 # E501: line too long
 # Q000: Remove bad quotes
 per-file-ignores =
-    main.py:Q000
     algorw/corrector/ai_corrector.py:E501
