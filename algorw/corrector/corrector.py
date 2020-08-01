@@ -22,7 +22,7 @@ El workflow es:
 
 Salida:
 
-  - un mensaje al alumno con los resultados. Se envía desde GMAIL_ACCOUNT.
+  - un mensaje al alumno con los resultados.
 
   - se guarda una copia de los archivos en DATA_DIR/<TP_ID>/<YYYY_CX>/<PADRON>.
 """
@@ -51,6 +51,7 @@ import oauth2client.client  # type: ignore
 from github import GithubException
 
 from alu_repos import AluRepo
+from config import Settings, load_config
 
 
 ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
@@ -64,19 +65,12 @@ PADRON_REGEX = re.compile(r"\b(SP\d+|CBC\d+|\d{5,})\b")
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
 
-GMAIL_ACCOUNT = os.environ.get("CORRECTOR_ACCOUNT")
 CLIENT_ID = os.environ.get("CORRECTOR_OAUTH_CLIENT")
 CLIENT_SECRET = os.environ.get("CORRECTOR_OAUTH_SECRET")
 
 # Si OAUTH_REFRESH_TOKEN no está definido, el mail se imprime por pantalla y no
 # se envía.
 OAUTH_REFRESH_TOKEN = os.environ.get("CORRECTOR_REFRESH_TOKEN")
-
-# Nunca respondemos a mail enviado por estas direcciones.
-IGNORE_ADDRESSES = {
-    GMAIL_ACCOUNT,  # Mail de nosotros mismos.
-    "no-reply@accounts.google.com",  # Notificaciones sobre la contraseña.
-}
 
 # Archivos que no aceptamos en las entregas.
 FORBIDDEN_EXTENSIONS = {
@@ -85,6 +79,8 @@ FORBIDDEN_EXTENSIONS = {
     ".jar",
     ".pyc",
 }
+
+cfg: Settings = load_config()
 
 
 class ErrorInterno(Exception):
@@ -414,14 +410,14 @@ def zip_datetime(info):
 def send_reply(orig_msg, reply_text):
     """Envía una cadena de texto como respuesta a un correo recibido.
     """
-    if not OAUTH_REFRESH_TOKEN:
-        print("ENVIARÍA: {}".format(reply_text))
+    if cfg.test:
+        print("ENVIARÍA: {}".format(reply_text), file=sys.stderr)
         return
 
     reply = email.message.Message(email.policy.default)
     reply.set_payload(reply_text, "utf-8")
 
-    reply["From"] = GMAIL_ACCOUNT
+    reply["From"] = cfg.sender.email
     reply["To"] = orig_msg["To"]
     reply["Cc"] = orig_msg.get("Cc", "")
     reply["Subject"] = "Re: " + orig_msg["Subject"]
@@ -429,7 +425,7 @@ def send_reply(orig_msg, reply_text):
     reply["In-Reply-To"] = orig_msg["Message-ID"]
 
     creds = get_oauth_credentials()
-    xoauth2_tok = f"user={GMAIL_ACCOUNT}\1" f"auth=Bearer {creds.access_token}\1\1"
+    xoauth2_tok = f"user={cfg.sender.email}\1" f"auth=Bearer {creds.access_token}\1\1"
     xoauth2_b64 = base64.b64encode(xoauth2_tok.encode("ascii")).decode("ascii")
 
     server = smtplib.SMTP("smtp.gmail.com", 587)
