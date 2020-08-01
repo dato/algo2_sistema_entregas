@@ -20,7 +20,8 @@ from werkzeug.utils import secure_filename
 
 from algorw import utils
 from algorw.app.queue import task_queue
-from algorw.app.tasks import EntregaTask, reload_fetchmail
+from algorw.app.tasks import reload_fetchmail
+from algorw.common.tasks import CorrectorTask
 from algorw.models import Alumne, Docente
 from config import Modalidad, Settings, load_config
 from planilla import fetch_planilla, timer_planilla
@@ -162,7 +163,7 @@ def sendmail(
         # copia local de algo2_entregas.
         utils.sendmail(correo, oauth_credentials())
 
-    task_queue.enqueue(reload_fetchmail, EntregaTask(subject=subject_text))
+    task_queue.enqueue(reload_fetchmail, CorrectorTask(subject=subject_text))
     return correo
 
 
