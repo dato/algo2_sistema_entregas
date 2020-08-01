@@ -1,7 +1,6 @@
 import collections
 import io
 import logging
-import mimetypes
 import zipfile
 
 from email import encoders
@@ -29,6 +28,7 @@ from planilla import fetch_planilla, timer_planilla
 
 app = Flask("entregas")
 app.logger.setLevel(logging.INFO)
+app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024  # 4 MiB
 
 cfg: Settings = load_config()
 cache: Cache = Cache(config={"CACHE_TYPE": "simple"})
@@ -37,7 +37,7 @@ cache.init_app(app)
 timer_planilla.start()
 
 File = collections.namedtuple("File", ["content", "filename"])
-EXTENSIONES_ACEPTADAS = {"zip", "tar", "gz", "pdf"}
+EXTENSIONES_ACEPTADAS = {"zip"}  # TODO: volver a aceptar archivos sueltos.
 
 
 class InvalidForm(Exception):
@@ -91,13 +91,12 @@ def get_files():
     ]
 
 
-def sendmail(
-    tp: str,
-    alulist: List[Alumne],
-    docente: Optional[Docente],
-    files: List[File],
-    body: str,
+def make_email(
+    tp: str, alulist: List[Alumne], docente: Optional[Docente], body: str,
 ) -> MIMEMultipart:
+    """Prepara el correo a enviar, con cabeceras y cuerpo, sin adjunto.
+    """
+    body_n = f"\n{body}\n" if body else ""
     emails = sorted(x.correo for x in alulist)
     nombres = sorted(x.nombre.split(",")[0].title() for x in alulist)
     padrones = utils.sorted_strnum([x.legajo for x in alulist])
@@ -111,60 +110,15 @@ def sendmail(
     subject_text = "{tp} - {padrones} - {nombres}".format(
         tp=tp, padrones=", ".join(padrones), nombres=", ".join(nombres)
     )
-
-    if not files:
-        # Se asume que es una ausencia, se escribe la justificación dentro
-        # de un archivo ZIP para que el corrector automático acepte el mail
-        # como una entrega, y registre la justificación en el repositorio.
-        rawzip = io.BytesIO()
-        with zipfile.ZipFile(rawzip, "w") as zf:
-            zf.writestr("ausencia.txt", body + "\n")
-        files = [File(rawzip.getvalue(), f"{tp.lower()}_ausencia.zip")]
-        subject_text += " (ausencia)"  # Permite al corrector omitir las pruebas.
-
     correo["Date"] = formatdate()
     correo["Subject"] = subject_text
     correo["Message-ID"] = make_msgid("entregas", "algorw.turing.pink")
+    direcciones = "\n".join(emails)
     correo.attach(
         MIMEText(
-            "\n".join(
-                [
-                    tp,
-                    "\n".join(emails),
-                    f"\n{body}\n" if body else "",
-                    f"-- \n{cfg.title} - {request.url}",
-                ]
-            ),
-            "plain",
+            f"{tp}\n{direcciones}\n{body_n}\n-- \n{cfg.title} – {request.url}", "plain",
         )
     )
-
-    for f in files:
-        # Tomado de: https://docs.python.org/3.5/library/email-examples.html#id2
-        # Adivinamos el Content-Type de acuerdo a la extensión del fichero.
-        ctype, encoding = mimetypes.guess_type(f.filename)
-        if ctype is None or encoding is not None:
-            # No pudimos adivinar, así que usamos un Content-Type genérico.
-            ctype = "application/octet-stream"
-        maintype, subtype = ctype.split("/", 1)
-        if maintype == "text":
-            msg = MIMEText(f.content, _subtype=subtype)
-        else:
-            msg = MIMEBase(maintype, subtype)
-            msg.set_payload(f.content)
-            # Codificamos el payload en base 64.
-            encoders.encode_base64(msg)
-        # Set the filename parameter
-        msg.add_header("Content-Disposition", "attachment", filename=f.filename)
-        correo.attach(msg)
-
-    if not cfg.test:
-        # TODO: en lugar de enviar un mail, que es lento, hacer un commit en la
-        # copia local de algo2_entregas.
-        utils.sendmail(correo, oauth_credentials())
-
-    task = CorrectorTask(tp_id=tp.lower(), legajos=padrones, mensaje=correo.as_bytes())
-    task_queue.enqueue(corregir_entrega, task)
     return correo
 
 
@@ -228,7 +182,38 @@ def post():
         legajos = ", ".join(x.legajo for x in alulist)
         raise FailedDependency(f"No hay corrector para la entrega {tp} de {legajos}")
 
-    email = sendmail(tp.upper(), alulist, docente, files, body)
+    email = make_email(tp.upper(), alulist, docente, body)
+    legajos = utils.sorted_strnum([x.legajo for x in alulist])
+
+    if tipo == "ausencia":
+        rawzip = io.BytesIO()
+        email.replace_header("Subject", email["Subject"] + " (ausencia)")
+        with zipfile.ZipFile(rawzip, "w") as zf:
+            zf.writestr("ausencia.txt", body + "\n")
+        entrega = File(rawzip.getvalue(), f"{tp}_ausencia.zip")
+    else:
+        entrega = zipfile_for_entrega(files)
+
+    # Incluir el único archivo ZIP.
+    part = MIMEBase("application", "zip")
+    part.set_payload(entrega.content)
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", "attachment", filename=entrega.filename)
+    email.attach(part)
+
+    task = CorrectorTask(
+        tp_id=tp.lower(),
+        legajos=legajos,
+        zipfile=entrega.content,
+        orig_headers=dict(email.items()),
+    )
+
+    task_queue.enqueue(corregir_entrega, task)
+
+    if not cfg.test:
+        # TODO: en lugar de enviar un mail, que es lento, hacer un commit en la
+        # copia local de algo2_entregas.
+        utils.sendmail(email, oauth_credentials())
 
     return render_template(
         "result.html",
@@ -255,3 +240,22 @@ def validate_captcha():
     if not json["success"]:
         msg = ", ".join(json.get("error-codes", ["unknown error"]))
         raise InvalidForm(f"Falló la validación del captcha ({msg})")
+
+
+def zipfile_for_entrega(files: List[File]) -> File:
+    """Genera un archivo ZIP para enviar al corrector.
+
+    Por el momento, se reenvía tal cual el archivo recibido (debe haber solo uno).
+    """
+    # TODO: realizar toda la validación aquí, y no en zip_walk().
+    # TODO: si el archivo tiene subdirectorios o archivos no permitidos, crear un
+    # nuevo ZIP, y enviar ese al corrector.
+    assert EXTENSIONES_ACEPTADAS == {"zip"}
+
+    if len(files) != 1:
+        nombres = ", ".join(f.filename for f in files)
+        raise InvalidForm(
+            f"Se esperaba un único archivo ZIP en la entrega (se encontró: {nombres})"
+        )
+
+    return files[0]

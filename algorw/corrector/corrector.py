@@ -42,6 +42,8 @@ import sys
 import tarfile
 import zipfile
 
+from typing import Dict
+
 from dotenv import load_dotenv
 from github import GithubException
 
@@ -61,7 +63,6 @@ DATA_DIR = ROOT_DIR / os.environ["CORRECTOR_TPS"]
 WORKER_BIN = ROOT_DIR / os.environ["CORRECTOR_WORKER"]
 GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
 
-MAX_ZIP_SIZE = 1024 * 1024  # 1 MiB
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
 
@@ -93,25 +94,24 @@ def corregir_entrega(task: CorrectorTask):
 
     El flujo de la corrección se corta lanzando excepciones ErrorAlumno.
     """
-    msg = email.message_from_bytes(task.mensaje, policy=email.policy.default)
     try:
-        procesar_entrega(task, msg)
+        procesar_entrega(task)
     except ErrorAlumno as ex:
-        send_reply(msg, "ERROR: {}.".format(ex))
+        send_reply(task.orig_headers, f"ERROR: {ex}.")
     except ErrorInterno as ex:
         print(ex, file=sys.stderr)
 
 
-def procesar_entrega(task: CorrectorTask, msg):
+def procesar_entrega(task: CorrectorTask):
     """Recibe el mensaje del alumno y lanza el proceso de corrección.
     """
-    subj = msg["Subject"]
+    subj = task.orig_headers["Subject"]
     tp_id = task.tp_id
     padron = "_".join(task.legajos)
-    zip_obj = find_zip(msg)
+    zip_obj = zipfile.ZipFile(io.BytesIO(task.zipfile))
     skel_dir = SKEL_DIR / tp_id
 
-    moss = Moss(DATA_DIR, tp_id, padron, msg["Date"])
+    moss = Moss(DATA_DIR, tp_id, padron, task.orig_headers["Date"])
 
     if AUSENCIA_REGEX.search(subj):
         # No es una entrega real, por tanto no se envía al worker.
@@ -120,7 +120,7 @@ def procesar_entrega(task: CorrectorTask, msg):
         moss.commit_emoji()
         moss.flush()
         send_reply(
-            msg,
+            task.orig_headers,
             "Justificación registrada\n\n"
             + "-- \nURL de esta entrega (para uso docente):\n"
             + moss.url(),
@@ -187,41 +187,7 @@ def procesar_entrega(task: CorrectorTask, msg):
 
     quote = ai_corrector.vida_corrector(tp_id)
     firma = "URL de esta entrega (para uso docente):\n" + moss.url()
-    send_reply(msg, f"{quote}{output}\n\n-- \n{firma}")
-
-
-def find_zip(msg):
-    """Busca un adjunto .zip en un mensaje y lo devuelve.
-
-    Args:
-        - msg: un objeto email.message.Message.
-
-    Returns:
-        - un objeto zipfile.ZipFile.
-    """
-    for part in msg.walk():
-        if part.get_content_maintype() == "multipart":
-            continue  # Multipart es una enclosure.
-
-        filename = part.get_filename() or ""
-        content_type = part.get_content_type()
-
-        if filename.lower().endswith(".zip") or content_type == "application/zip":
-            zipbytes = part.get_payload(decode=True)
-            if len(zipbytes) > MAX_ZIP_SIZE:
-                raise ErrorAlumno(
-                    "archivo ZIP demasiado grande ({} bytes)".format(len(zipbytes))
-                )
-            try:
-                return zipfile.ZipFile(io.BytesIO(zipbytes))
-            except zipfile.BadZipFile as ex:
-                raise ErrorAlumno(
-                    "no se pudo abrir el archivo {} ({} bytes): {}".format(
-                        filename, len(zipbytes), ex
-                    )
-                )
-
-    raise ErrorAlumno("no se encontró un archivo ZIP en el mensaje")
+    send_reply(task.orig_headers, f"{quote}{output}\n\n-- \n{firma}")
 
 
 def is_forbidden(path):
@@ -340,8 +306,12 @@ def zip_datetime(info):
     return datetime.datetime(*info.date_time)
 
 
-def send_reply(orig_msg, reply_text):
+def send_reply(orig_headers: Dict[str, str], reply_text: str):
     """Envía una cadena de texto como respuesta a un correo recibido.
+
+    Args:
+        orig_headers: headers del mensaje original enviado por el sistema de entregas.
+        reply_text: texto de la respuesta a enviar, como texto.
     """
     if cfg.test or True:
         print("ENVIARÍA: {}".format(reply_text), file=sys.stderr)
@@ -352,10 +322,10 @@ def send_reply(orig_msg, reply_text):
     reply.set_payload(reply_text, "utf-8")
 
     reply["From"] = cfg.sender.email
-    reply["To"] = orig_msg["To"]
-    reply["Cc"] = orig_msg.get("Cc", "")
-    reply["Subject"] = "Re: " + orig_msg["Subject"]
-    reply["Reply-To"] = orig_msg.get("Reply-To", "")
-    reply["In-Reply-To"] = orig_msg["Message-ID"]
+    reply["To"] = orig_headers["To"]
+    reply["Cc"] = orig_headers.get("Cc", "")
+    reply["Subject"] = "Re: " + orig_headers["Subject"]
+    reply["Reply-To"] = orig_headers.get("Reply-To", "")
+    reply["In-Reply-To"] = orig_headers["Message-ID"]
 
     return utils.sendmail(reply, creds)

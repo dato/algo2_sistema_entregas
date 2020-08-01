@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -16,6 +16,7 @@ class CorrectorTask(BaseModel):
     # no necesite parsear nada.
 
     tp_id: str
-    mensaje: bytes
+    zipfile: bytes
     legajos: List[str]
+    orig_headers: Dict[str, str]
     group_id: Optional[str] = None
