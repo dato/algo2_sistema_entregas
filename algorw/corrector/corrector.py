@@ -321,11 +321,9 @@ def send_reply(orig_headers: Dict[str, str], reply_text: str):
     reply = email.message.Message(email.policy.default)
     reply.set_payload(reply_text, "utf-8")
 
-    reply["From"] = cfg.sender.email
-    reply["To"] = orig_headers["To"]
-    reply["Cc"] = orig_headers.get("Cc", "")
+    reply["From"] = f"Corrector en beta <{cfg.sender.email}>"
+    reply["To"] = cfg.sender.email
     reply["Subject"] = "Re: " + orig_headers["Subject"]
-    reply["Reply-To"] = orig_headers.get("Reply-To", "")
     reply["In-Reply-To"] = orig_headers["Message-ID"]
 
     return utils.sendmail(reply, creds)
