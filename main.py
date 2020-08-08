@@ -335,5 +335,4 @@ def zipfile_for_entrega(files: List[File]) -> Tuple[File, List[str]]:
                 zip_info.filename = path.relative_to(toplevel).as_posix()
                 zf.writestr(zip_info, contents)
 
-    print(rejections)
     return File(zipbytes.getvalue(), files[0].filename), rejections
