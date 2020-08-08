@@ -67,14 +67,6 @@ AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
 
 
-# Archivos que no aceptamos en las entregas.
-FORBIDDEN_EXTENSIONS = {
-    ".o",
-    ".class",
-    ".jar",
-    ".pyc",
-}
-
 cfg: Settings = load_config()
 
 
@@ -115,8 +107,9 @@ def procesar_entrega(task: CorrectorTask):
 
     if AUSENCIA_REGEX.search(subj):
         # No es una entrega real, por tanto no se envía al worker.
-        for path, zip_info in zip_walk(zip_obj):
-            moss.save_data(path, zip_obj.read(zip_info))
+        for zip_info in zip_obj.infolist():
+            if not zip_info.is_dir():
+                moss.save_data(zip_info.filename, zip_obj.read(zip_info))
         moss.commit_emoji()
         moss.flush()
         send_reply(
@@ -140,17 +133,19 @@ def procesar_entrega(task: CorrectorTask):
     # Añadir al archivo TAR la base del TP (skel_dir).
     for entry in os.scandir(skel_dir):
         path = pathlib.PurePath(entry.path)
-        rel_path = path.relative_to(skel_dir)
-        tar.add(path, "skel" / rel_path)
+        tar_path = "skel" / path.relative_to(skel_dir)
+        tar.add(entry.path, tar_path.as_posix())
 
     # A continuación añadir los archivos de la entrega (ZIP).
-    for path, zip_info in zip_walk(zip_obj):
-        info = tarfile.TarInfo(("orig" / path).as_posix())
+    for zip_info in zip_obj.infolist():
+        if zip_info.is_dir():
+            continue
+        info = tarfile.TarInfo(f"orig/{zip_info.filename}")
         info.size = zip_info.file_size
         info.mtime = zip_datetime(zip_info).timestamp()
         info.type, info.mode = tarfile.REGTYPE, 0o644
 
-        moss.save_data(path, zip_obj.read(zip_info))
+        moss.save_data(zip_info.filename, zip_obj.read(zip_info))
         tar.addfile(info, zip_obj.open(zip_info.filename))
 
     tar.close()
@@ -190,55 +185,6 @@ def procesar_entrega(task: CorrectorTask):
     send_reply(task.orig_headers, f"{quote}{output}\n\n-- \n{firma}")
 
 
-def is_forbidden(path):
-    return (
-        path.is_absolute() or ".." in path.parts or path.suffix in FORBIDDEN_EXTENSIONS
-    )
-
-
-def zip_walk(zip_obj, strip_toplevel=True):
-    """Itera sobre los archivos de un zip.
-
-    Args:
-        - zip_obj: un objeto zipfile.ZipFile abierto en modo lectura
-        - skip_toplevel: un booleano que indica si a los nombres de archivos se les
-            debe quitar el nombre de directorio común (si lo hubiese)
-
-    Yields:
-        - tuplas (nombre_archivo, zipinfo_object).
-    """
-    zip_files = [pathlib.PurePath(f) for f in zip_obj.namelist()]
-    forbidden_files = [f for f in zip_files if is_forbidden(f)]
-    all_parents = set()
-    common_parent = pathlib.PurePath(".")
-
-    if not zip_files:
-        raise ErrorAlumno("archivo ZIP vacío")
-
-    if forbidden_files:
-        raise ErrorAlumno(
-            "no se permiten archivos con estas extensiones:\n\n  • "
-            + "\n  • ".join(f.name for f in forbidden_files)
-        )
-
-    for path in zip_files:
-        all_parents.update(path.parents)
-
-    if strip_toplevel and len(zip_files) > 1:
-        parents = {p.parts[0] for p in zip_files}
-        if len(parents) == 1:
-            common_parent = parents.pop()
-
-    for fname in zip_files:
-        if fname not in all_parents:
-            try:
-                inf = zip_obj.getinfo(fname.as_posix())
-            except KeyError:
-                pass
-            else:
-                yield (fname.relative_to(common_parent), inf)
-
-
 class Moss:
     """Guarda código fuente del alumno.
     """
@@ -265,7 +211,7 @@ class Moss:
             cwd=self._dest,
         )
 
-    def save_data(self, relpath, contents):
+    def save_data(self, relpath: str, contents: bytes) -> bool:
         """Guarda un archivo si es código fuente.
 
         Devuelve True si se guardó, False si se decidió no guardarlo.

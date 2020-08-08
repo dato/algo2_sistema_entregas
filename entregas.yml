@@ -1,4 +1,5 @@
-test: false
+test: true
+job_queue: entregas
 title: Algoritmos y Programación II - Entrega de TPs
 sender: Entregas Algoritmos 2 <tps.7541rw@gmail.com>
 

@@ -8,7 +8,8 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
-from typing import List, Optional
+from pathlib import PurePath
+from typing import List, Optional, Tuple
 
 import requests
 
@@ -38,6 +39,14 @@ timer_planilla.start()
 
 File = collections.namedtuple("File", ["content", "filename"])
 EXTENSIONES_ACEPTADAS = {"zip"}  # TODO: volver a aceptar archivos sueltos.
+
+# Archivos que no aceptamos en las entregas.
+FORBIDDEN_EXTENSIONS = {
+    ".o",
+    ".class",
+    ".jar",
+    ".pyc",
+}
 
 
 class InvalidForm(Exception):
@@ -91,12 +100,11 @@ def get_files():
     ]
 
 
-def make_email(
-    tp: str, alulist: List[Alumne], docente: Optional[Docente], body: str,
+def make_headers(
+    tp: str, alulist: List[Alumne], docente: Optional[Docente]
 ) -> MIMEMultipart:
-    """Prepara el correo a enviar, con cabeceras y cuerpo, sin adjunto.
+    """Prepara el correo a enviar, con las cabeceras solamente.
     """
-    body_n = f"\n{body}\n" if body else ""
     emails = sorted(x.correo for x in alulist)
     nombres = sorted(x.nombre.split(",")[0].title() for x in alulist)
     padrones = utils.sorted_strnum([x.legajo for x in alulist])
@@ -113,12 +121,6 @@ def make_email(
     correo["Date"] = formatdate()
     correo["Subject"] = subject_text
     correo["Message-ID"] = make_msgid("entregas", "algorw.turing.pink")
-    direcciones = "\n".join(emails)
-    correo.attach(
-        MIMEText(
-            f"{tp}\n{direcciones}\n{body_n}\n-- \n{cfg.title} – {request.url}", "plain",
-        )
-    )
     return correo
 
 
@@ -144,10 +146,11 @@ def oauth_credentials():
 def post():
     # Leer valores del formulario.
     try:
-        validate_captcha()
+        if not cfg.test:
+            validate_captcha()
         tp = request.form["tp"]
         files = get_files()
-        body = request.form["body"] or ""
+        form_body = request.form["body"] or ""
         tipo = request.form["tipo"]
         identificador = request.form["identificador"]
     except KeyError as ex:
@@ -167,7 +170,7 @@ def post():
         raise ValueError(f"La entrega {tp} debe ser individual")
     elif tipo == "entrega" and not files:
         raise InvalidForm("No se ha adjuntado ningún archivo con extensión válida.")
-    elif tipo == "ausencia" and not body:
+    elif tipo == "ausencia" and not form_body:
         raise InvalidForm("No se ha adjuntado una justificación para la ausencia.")
 
     # Encontrar a le docente correspondiente.
@@ -182,25 +185,46 @@ def post():
         legajos = ", ".join(x.legajo for x in alulist)
         raise FailedDependency(f"No hay corrector para la entrega {tp} de {legajos}")
 
-    email = make_email(tp.upper(), alulist, docente, body)
+    # Una vez validado todo, empezar a componer el mensaje, y preparar el ZIP para
+    # el corrector automático.
+    email = make_headers(tp.upper(), alulist, docente)
     legajos = utils.sorted_strnum([x.legajo for x in alulist])
+    direcciones = "\n".join(sorted(x.correo for x in alulist))
 
     if tipo == "ausencia":
         rawzip = io.BytesIO()
         email.replace_header("Subject", email["Subject"] + " (ausencia)")
         with zipfile.ZipFile(rawzip, "w") as zf:
-            zf.writestr("ausencia.txt", body + "\n")
+            zf.writestr("ausencia.txt", form_body + "\n")
         entrega = File(rawzip.getvalue(), f"{tp}_ausencia.zip")
+        omitidos = []
     else:
-        entrega = zipfile_for_entrega(files)
+        entrega, omitidos = zipfile_for_entrega(files)
 
-    # Incluir el único archivo ZIP.
+    # Componer elcuerpo del mensaje
+    # TODO: Usar un template de Jinja.
+    body_lines = [tp.upper(), direcciones, f"\n{form_body}" if form_body else ""]
+
+    if omitidos:
+        body_lines.extend(
+            [
+                "",
+                "AVISO: Los siguientes archivos fueron omitidos\n\n  • "
+                + "\n  • ".join(omitidos),
+            ]
+        )
+
+    body_lines.append(f"\n-- \n{cfg.title} – {request.url}")
+    email.attach(MIMEText("\n".join(body_lines)))
+
+    # Incluir el único archivo ZIP (quizás modificado).
     part = MIMEBase("application", "zip")
     part.set_payload(entrega.content)
     encoders.encode_base64(part)
     part.add_header("Content-Disposition", "attachment", filename=entrega.filename)
     email.attach(part)
 
+    # Enviar la tarea a la cola de trabajos.
     task = CorrectorTask(
         tp_id=tp.lower(),
         legajos=legajos,
@@ -242,14 +266,25 @@ def validate_captcha():
         raise InvalidForm(f"Falló la validación del captcha ({msg})")
 
 
-def zipfile_for_entrega(files: List[File]) -> File:
+def zipfile_for_entrega(files: List[File]) -> Tuple[File, List[str]]:
     """Genera un archivo ZIP para enviar al corrector.
 
-    Por el momento, se reenvía tal cual el archivo recibido (debe haber solo uno).
+    Por el momento, se asume que todas las entregas son un único ZIP, y esta
+    función simplemente lo valida, creando uno nuevo (filtrado) si es necesario.
+    Más adelante, si el sistema de entregas vuelve a aceptar archivos individuales,
+    la función simplemente los empacará en un ZIP para el corrector.
+
+    El corrector espera recibir archivos validados. En particular, espera que todos
+    los archivos se encuentren en el top-level del ZIP. Por tanto, esta función
+    generará un nuevo archivo si ocurre que:
+
+      - el contenido está en un directorio top-level en el zip (‘Abb/abb.c’)
+      - existen archivos con extensiones no permitidas (se filtran)
+      - existen archivos ocultos, por ejemplo ‘.git’ o ‘.vscode’
+
+    Devuelve una tupla con el ZIP a enviar al corrector, y la lista de archivos
+    omitidos, si los hubo.
     """
-    # TODO: realizar toda la validación aquí, y no en zip_walk().
-    # TODO: si el archivo tiene subdirectorios o archivos no permitidos, crear un
-    # nuevo ZIP, y enviar ese al corrector.
     assert EXTENSIONES_ACEPTADAS == {"zip"}
 
     if len(files) != 1:
@@ -258,4 +293,47 @@ def zipfile_for_entrega(files: List[File]) -> File:
             f"Se esperaba un único archivo ZIP en la entrega (se encontró: {nombres})"
         )
 
-    return files[0]
+    i = 0
+    zipbytes = io.BytesIO(files[0].content)
+    zipbytes.name = files[0].filename  # To please the exquisitely delicate zipfile.Path
+    zip_root = PurePath(zipbytes.name)
+    toplevel = PurePath(".")
+    orig_zip = zipfile.ZipFile(zipbytes)
+
+    pending = list(zipfile.Path(orig_zip).iterdir())
+    keep_paths = []
+    rejections = []
+
+    # Strip toplevel.
+    while len(pending) == 1 and (root := pending[0]).is_dir():
+        pending = list(root.iterdir())
+        toplevel = PurePath(str(root)).relative_to(zip_root)
+
+    if not pending:
+        raise InvalidForm("¿Archivo ZIP vacío?")
+
+    while i < len(pending):
+        zip_path = pending[i]
+        rel_path = PurePath(str(zip_path)).relative_to(zip_root)
+        if rel_path.name.startswith("."):
+            rejections.append(rel_path.as_posix())
+        elif rel_path.suffix.lower() in FORBIDDEN_EXTENSIONS:
+            rejections.append(rel_path.as_posix())
+        elif zip_path.is_file():
+            keep_paths.append((rel_path, zip_path.read_bytes()))
+        else:
+            pending.extend(zip_path.iterdir())
+        i += 1
+
+    if toplevel != PurePath(".") or rejections:
+        zipbytes = io.BytesIO()
+
+        with zipfile.ZipFile(zipbytes, "w") as zf:
+            for path, contents in keep_paths:
+                # Preserve original ZipInfo, but with updated path.
+                zip_info = orig_zip.getinfo(path.as_posix())
+                zip_info.filename = path.relative_to(toplevel).as_posix()
+                zf.writestr(zip_info, contents)
+
+    print(rejections)
+    return File(zipbytes.getvalue(), files[0].filename), rejections
