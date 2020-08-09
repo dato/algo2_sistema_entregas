@@ -110,15 +110,15 @@ def procesar_entrega(task: CorrectorTask):
     padron = "_".join(task.legajos)
     zip_obj = zipfile.ZipFile(io.BytesIO(task.zipfile))
     skel_dir = SKEL_DIR / tp_id
-
-    moss = Moss(DATA_DIR, tp_id, padron, task.orig_headers["Date"])
+    moss = Moss(DATA_DIR / task.repo_relpath)
+    commit_message = f"New {tp_id} upload from {padron}"
 
     if AUSENCIA_REGEX.search(subj):
         # No es una entrega real, por tanto no se envía al worker.
         for path, zip_info in zip_walk(zip_obj):
             moss.save_data(path, zip_obj.read(zip_info))
         moss.commit_emoji()
-        moss.flush()
+        moss.flush(commit_message, task.orig_headers["Date"])
         send_reply(
             task.orig_headers,
             "Justificación registrada\n\n"
@@ -161,7 +161,7 @@ def procesar_entrega(task: CorrectorTask):
 
     moss.save_output(f"{subj}\n\n{output}")
     moss.commit_emoji(output)
-    moss.flush()
+    moss.flush(commit_message, task.orig_headers["Date"])
 
     if retcode != 0:
         raise ErrorInterno(output)
@@ -243,12 +243,11 @@ class Moss:
     """Guarda código fuente del alumno.
     """
 
-    def __init__(self, pathobj, tp_id, padron, subj_date):
-        self._dest = pathobj / tp_id / cfg.cuatri / padron
+    def __init__(self, dest: pathlib.Path):
+        self._dest = dest
+        self._emoji = None
         shutil.rmtree(self._dest, ignore_errors=True)
         self._dest.mkdir(parents=True)
-        self._date = subj_date  # XXX(dato): verify RFC822
-        self._commit_message = f"New {tp_id} upload from {padron}"
 
     def location(self):
         """Directorio donde se guardaron los archivos.
@@ -275,11 +274,13 @@ class Moss:
         path.write_bytes(contents)
         return self._git(["add", relpath]) == 0
 
-    def flush(self):
+    def flush(self, message: str, date: str):  # TODO: pass datetime?
         """Termina de guardar los archivos en el repositorio.
         """
+        if self._emoji:
+            message = f"{self._emoji} {message}"
         self._git(["add", "--no-ignore-removal", "."])
-        self._git(["commit", "-m", self._commit_message, "--date", self._date])
+        self._git(["commit", "-m", message, "--date", date])
         self._git(["push", "--force-with-lease", "origin", ":"])
 
     def _git(self, args):
@@ -292,12 +293,11 @@ class Moss:
 
     def commit_emoji(self, output=None):
         if output is None:
-            emoji = ":question:"
+            self._emoji = ":question:"
         elif "Todo OK" in output.split("\n", 1)[0]:
-            emoji = ":heavy_check_mark:"
+            self._emoji = ":heavy_check_mark:"
         else:
-            emoji = ":x:"
-        self._commit_message = f"{emoji} " + self._commit_message
+            self._emoji = ":x:"
 
 
 def zip_datetime(info):
@@ -313,7 +313,7 @@ def send_reply(orig_headers: Dict[str, str], reply_text: str):
         orig_headers: headers del mensaje original enviado por el sistema de entregas.
         reply_text: texto de la respuesta a enviar, como texto.
     """
-    if cfg.test or True:
+    if cfg.test:
         print("ENVIARÍA: {}".format(reply_text), file=sys.stderr)
         return
 

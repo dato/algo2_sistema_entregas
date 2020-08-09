@@ -1,6 +1,7 @@
 import collections
 import io
 import logging
+import pathlib
 import zipfile
 
 from email import encoders
@@ -201,11 +202,22 @@ def post():
     part.add_header("Content-Disposition", "attachment", filename=entrega.filename)
     email.attach(part)
 
+    # Determinar la ruta en algo2_entregas (se hace caso especial para los parcialitos).
+    tp_id = tp.lower()
+
+    if cfg.entregas[tp] != Modalidad.PARCIALITO:
+        # Ruta tradicional: pila/2020_1/54321
+        relpath_base = pathlib.PurePath(tp_id) / cfg.cuatri
+    else:
+        # Ruta específica para parcialitos: parcialitos/2020_1/parcialito1_r2/54321
+        relpath_base = pathlib.PurePath("parcialitos") / cfg.cuatri / tp_id
+
     task = CorrectorTask(
-        tp_id=tp.lower(),
+        tp_id=tp_id,
         legajos=legajos,
         zipfile=entrega.content,
         orig_headers=dict(email.items()),
+        repo_relpath=relpath_base / "_".join(legajos),
     )
 
     task_queue.enqueue(corregir_entrega, task)
