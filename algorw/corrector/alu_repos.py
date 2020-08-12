@@ -276,7 +276,7 @@ def deleted_files(
     match_re: re.Pattern = None,
     preserve_from: GithubTree = None,
 ) -> List[InputGitTreeElement]:
-    """Calcula los archivos a borrar en el repositorio jutno con la entrega.
+    """Calcula los archivos a borrar en el repositorio junto con la entrega.
 
     Dada una lista que representa los contenidos actuales de la nueva
     entrega, y dado el árbol existente, esta función calcula los archivos
