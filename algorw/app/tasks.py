@@ -3,9 +3,15 @@ import signal
 import sys
 
 from ..common.tasks import CorrectorTask
+from ..corrector import corregir_entrega as corrector_original
 
 
-def reload_fetchmail(task: CorrectorTask):
+def corregir_entrega(task: CorrectorTask):
+    reload_fetchmail()
+    corrector_original(task)
+
+
+def reload_fetchmail():
     try:
         with open(os.path.expanduser("~/.fetchmail.pid")) as pidfile:
             pid = int(pidfile.readline())

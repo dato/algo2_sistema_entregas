@@ -2,6 +2,7 @@ from base64 import b64encode
 from email.message import Message
 from email.utils import parseaddr
 from smtplib import SMTP
+from typing import List
 
 from google.auth.transport.requests import Request  # type: ignore
 from google.oauth2.credentials import Credentials  # type: ignore
@@ -36,3 +37,16 @@ def get_oauth_credentials(cfg: Settings):
     )
     creds.refresh(Request())  # FIXME: catch UserAccessTokenError.
     return creds
+
+
+def sorted_strnum(elems: List[str]) -> List[str]:
+    """Ordena cadenas, teniendo en cuenta su valor numérico.
+
+    Por ejemplo, sorted_strnum(["11", "9"]) devuelve ["9", "11"].
+    Y sorted_strnum(["a", "11", "9"]) devuelve ["9", "11", "a"].
+    """
+    # Para ordenar ascendentemente cadenas que son casi siempre
+    # números, podemos usar "0>{maxlen}" como key, que añade ceros
+    # a la izquierda para dar a todos el mismo ancho.
+    maxlen = max(len(x) for x in elems)
+    return sorted(elems, key=lambda s: f"{s:0>{maxlen}}")
