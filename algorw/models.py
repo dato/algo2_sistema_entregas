@@ -10,6 +10,7 @@ __all__ = [
     "Alumne",
     "Docente",
     "parse_rows",
+    "safeidx",
 ]
 
 
@@ -68,7 +69,7 @@ def parse_rows(rows: List[List[str]], model: Type[Model]) -> List[Model]:
         indices.append(headers.index(field))
 
     for row in islice(rows, 1, None):
-        attrs = {field: _safeidx(row, idx) for field, idx in zip(fields, indices)}
+        attrs = {field: safeidx(row, idx) for field, idx in zip(fields, indices)}
         try:
             objects.append(model.parse_obj(attrs))
         except ValidationError as ex:
@@ -80,7 +81,7 @@ def parse_rows(rows: List[List[str]], model: Type[Model]) -> List[Model]:
     return objects
 
 
-def _safeidx(lst, i):
+def safeidx(lst, i):
     """Devuelve el índice i-ésimo (columna i-ésima)d e una lista (fila).
 
     Si la lista no tiene el tamaño suficiente, o contiene la cadena vacía,

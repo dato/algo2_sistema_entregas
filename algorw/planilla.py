@@ -4,7 +4,7 @@ from enum import Enum
 from itertools import islice
 from typing import Dict, List
 
-from .models import Alumne, Docente, parse_rows
+from .models import Alumne, Docente, parse_rows, safeidx
 from .sheets import PullDB
 
 
@@ -89,8 +89,8 @@ class Planilla(PullDB):
             except KeyError:
                 self._logger.warn(f"{legajo} aparece en Notas pero no en DatosAlumnos")
             else:
-                alu.ayudante_indiv = self._docentes.get(row[ayudante_indiv])
-                alu.ayudante_grupal = self._docentes.get(row[ayudante_grupal])
+                alu.ayudante_indiv = self._docentes.get(safeidx(row, ayudante_indiv))
+                alu.ayudante_grupal = self._docentes.get(safeidx(row, ayudante_grupal))
                 if grupo := row[nro_grupo]:
                     alu.grupo = grupo
                     alulist_by_id.setdefault(grupo, []).append(alu)
