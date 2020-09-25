@@ -1,0 +1,35 @@
+# See https://pre-commit.com for more information
+repos:
+  - repo: https://github.com/psf/black
+    rev: 19.10b0
+    hooks:
+    - id: black
+      exclude: ^scripts/source2pdf.py
+      language_version: python3
+  - repo: local
+    hooks:
+      - id: flake8
+        name: flake8
+        types: [python]
+        language: system
+        entry: venv/bin/python -m flake8
+      - id: mypy
+        name: mypy
+        types: [python]
+        stages: [push]
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: venv/bin/mypy --warn-unused-ignores algorw main.py planilla.py
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.1.0
+    hooks:
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+    - id: check-ast
+    - id: check-json
+    # https://github.com/pre-commit/pre-commit-hooks/issues/103
+    # - id: check-yaml
+    - id: check-merge-conflict
+    - id: check-vcs-permalinks
+    - id: check-added-large-files

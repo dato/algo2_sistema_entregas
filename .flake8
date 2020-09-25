@@ -17,3 +17,5 @@ extend-ignore = B014,D1,D200,P101
 # Q000: Remove bad quotes
 per-file-ignores =
     algorw/corrector/ai_corrector.py:E501
+
+exclude = scripts/source2pdf.py

@@ -1,0 +1,16 @@
+name: pre-commit
+on:
+  pull_request:
+  push:
+    branches: [master]
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+    - uses: pre-commit/action@v2.0.0
+      with:
+       # Just black for now, since flake8 and mypy require to install
+       # additional software (we don't install it through pre-commit).
+       extra_args: black --all-files

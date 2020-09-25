@@ -16,12 +16,15 @@ from typing import Dict, List, Set, Type, TypeVar
 import git  # type: ignore
 import github
 
+from dotenv import load_dotenv
 from git.objects.fun import traverse_tree_recursive  # type: ignore
 from git.util import stream_copy  # type: ignore
 from github import InputGitTreeElement
 from github.GitTree import GitTree as GithubTree
 from github.Repository import Repository as GithubRepo
 
+
+load_dotenv()
 
 T = TypeVar("T", bound="AluRepo")
 

@@ -44,7 +44,6 @@ import zipfile
 
 from typing import Dict
 
-from dotenv import load_dotenv
 from github import GithubException
 
 from config import Settings, load_config
@@ -52,9 +51,7 @@ from config import Settings, load_config
 from .. import utils
 from ..common.tasks import CorrectorTask
 from . import ai_corrector
-
-
-load_dotenv()
+from .alu_repos import AluRepo
 
 
 ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
