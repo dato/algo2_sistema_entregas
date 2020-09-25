@@ -59,6 +59,7 @@ SKEL_DIR = ROOT_DIR / os.environ["CORRECTOR_SKEL"]
 DATA_DIR = ROOT_DIR / os.environ["CORRECTOR_TPS"]
 WORKER_BIN = ROOT_DIR / os.environ["CORRECTOR_WORKER"]
 GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
+GITHUB_USER = os.environ["CORRECTOR_GH_USER"]
 
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
@@ -163,10 +164,10 @@ def procesar_entrega(task: CorrectorTask):
     if retcode != 0:
         raise ErrorInterno(output)
 
-    if TODO_OK_REGEX.search(output) and False:
+    if task.alu_repo is not None:
         try:
             # Sincronizar la entrega con los repositorios individuales.
-            alu_repo = AluRepo.from_legajos(padron.split("_"), tp_id)
+            alu_repo = AluRepo(task.alu_repo.full_name, task.github_id or GITHUB_USER)
             alu_repo.ensure_exists(skel_repo="algorw-alu/algo2_tps")
             alu_repo.sync(moss.location(), tp_id)
         except (KeyError, ValueError):
@@ -174,7 +175,7 @@ def procesar_entrega(task: CorrectorTask):
         except GithubException as ex:
             print(f"error al sincronizar: {ex}", file=sys.stderr)
         else:
-            if alu_repo.has_reviewer():
+            if TODO_OK_REGEX.search(output):
                 # Insertar, por el momento, la URL del repositorio.
                 # TODO: insertar URL para un pull request si es el primer Todo OK.
                 message = "Esta entrega fue importada a:"

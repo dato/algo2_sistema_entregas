@@ -145,7 +145,8 @@ def oauth_credentials():
 def post():
     # Leer valores del formulario.
     try:
-        validate_captcha()
+        if not cfg.test:
+            validate_captcha()
         tp = request.form["tp"]
         files = get_files()
         body = request.form["body"] or ""

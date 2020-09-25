@@ -6,7 +6,6 @@ import csv
 import io
 import os
 import pathlib
-import random
 import re
 import tempfile
 
@@ -32,45 +31,16 @@ ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
 PLANILLA_TSV = ROOT_DIR / "conf" / "repos.tsv"
 
 GITHUB_TOKEN = os.environ["CORRECTOR_GH_TOKEN"]
-DEFAULT_GHUSER = os.environ["CORRECTOR_GH_USER"]
-
-# XXX Temporario 2020/1. Maneja a qué personas se les incluye
-# el enlace al repo en el mail que envía el corrector.
-REVIEWEE_INDIV = {
-    "54321",
-}
-
-# Poner aquí los padrones de integrantes de grupos, pero *solo*
-# si el grupo tiene dos miembros. Si no, ponerlos en REVIEW_INDIV.
-REVIEWEE_GRUPAL = {
-    "543421",
-}
 
 
 class AluRepo:
-    """Clase para manejar los repositorios individuales y grupales.
+    """Clase para sincronizar un repo de alumne.
     """
 
-    # TODO: separar esta clase en dos, una para obtener el nombre de los repos
-    # (primeros tres métodos), y otra para meramente (métodos sync y ensure_exists).
-
-    DEFAULT_COLUMN = "Repo"
-
-    def __init__(
-        self, repo_full: str, legajos: List[str], github_users: List[str] = None,
-    ):
-        """Constructor de la clase AluRepo.
-
-        Normalmente no se usa directamente, sino que se usa uno de:
-
-          • AluRepo.from_legajo
-          • AluRepo.from_grupo
-          • AluRepo.from_legajos
-        """
-        self.gh_repo: Optional[GithubRepo] = None
-        self.legajos = set(legajos)
+    def __init__(self, repo_full: str, github_user: str):
+        self.gh_repo: Optional[GithubRepo] = None  # TODO: Make this a @property.
         self.repo_full = repo_full
-        self.github_users = github_users or [DEFAULT_GHUSER]
+        self.github_user = github_user
 
     @classmethod
     def from_legajo(
@@ -214,11 +184,6 @@ class AluRepo:
         # TODO: set up team access
         # TODO: configure branch protections
 
-    def has_reviewer(self):
-        # TODO: usar la columna Reviewer de la planilla?
-        reviewees = REVIEWEE_GRUPAL if len(self.legajos) > 1 else REVIEWEE_INDIV
-        return not self.legajos.isdisjoint(reviewees)
-
     def sync(self, entrega_dir: pathlib.Path, rama: str, *, target_subdir: str = None):
         """Importa una entrega a los repositorios de alumnes.
 
@@ -239,7 +204,7 @@ class AluRepo:
         gh = github.Github(GITHUB_TOKEN)
         repo = self.gh_repo or gh.get_repo(self.repo_full)
         gitref = repo.get_git_ref(f"heads/{rama}")
-        ghuser = random.choice(self.github_users)  # ¯\_(ツ)_/¯ Only entregas knows.
+        ghuser = self.github_user
         prefix_re = re.compile(re.escape(target_subdir.rstrip("/") + "/"))
 
         # Estado actual del repo.
@@ -362,8 +327,3 @@ def deleted_files(
         InputGitTreeElement(path, "100644", "blob", sha=None)  # type: ignore
         for path in deletions
     ]
-
-
-# Local Variables:
-# eval: (blacken-mode 1)
-# End:
