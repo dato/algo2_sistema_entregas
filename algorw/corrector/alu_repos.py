@@ -11,7 +11,7 @@ import re
 import tempfile
 
 from datetime import datetime, timezone
-from typing import Dict, List, Set, Type, TypeVar
+from typing import Dict, List, Optional, Set, Type, TypeVar
 
 import git  # type: ignore
 import github
@@ -67,7 +67,7 @@ class AluRepo:
           • AluRepo.from_grupo
           • AluRepo.from_legajos
         """
-        self.gh_repo = None
+        self.gh_repo: Optional[GithubRepo] = None
         self.legajos = set(legajos)
         self.repo_full = repo_full
         self.github_users = github_users or [DEFAULT_GHUSER]
@@ -357,7 +357,11 @@ def deleted_files(
     preserve_files = filter_tree(preserve_from) if preserve_from else set()
 
     deletions = cur_files - new_files - preserve_files
-    return [InputGitTreeElement(path, "100644", "blob", sha=None) for path in deletions]
+    # mypy complains here because of https://github.com/PyGithub/PyGithub/issues/1707
+    return [
+        InputGitTreeElement(path, "100644", "blob", sha=None)  # type: ignore
+        for path in deletions
+    ]
 
 
 # Local Variables:
