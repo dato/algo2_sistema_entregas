@@ -14,6 +14,17 @@ Cada entrega quedará registrada.
 <form class="form-horizontal" role="form" method="post" enctype="multipart/form-data">
   {% if alert %}<div class="alert alert-danger">{{ alert }}</div>{% endif %}
 
+  <div class="form-group" id="fg_legajo">
+    <label for="legajo" class="col-xs-2 control-label">Legajo:</label>
+    <div class="col-xs-4">
+      <div class="input-group">
+        <input type="text" class="form-control" name="legajo" id="legajo" value="" placeholder="Legajo o padrón">
+        <span class="input-group-addon"></span>
+      </div>
+      <p class="help-block">
+      </p>
+    </div>
+  </div>
   <div class="form-group" id="fg_tp">
     <label for="tp" class="col-xs-2 control-label">Trabajo:</label>
     <div class="col-xs-4">
@@ -25,15 +36,22 @@ Cada entrega quedará registrada.
       </select>
     </div>
   </div>
-  <div class="form-group" id="fg_identificador">
-    <label for="identificador" class="col-xs-2 control-label">Identificador:</label>
+  <div class="form-group" id="fg_modalidad">
+    <label for="modalidad" class="col-xs-2 control-label">Modalidad:</label>
     <div class="col-xs-4">
       <div class="input-group">
-        <input type="text" class="form-control" name="identificador" id="identificador" value="" placeholder="Identificador">
-        <span class="input-group-addon"></span>
+        <div class="radio">
+          <label><input type="radio" name="modalidad" value="individual">Entrega individual</label>
+        </div>
+        <div class="radio">
+          <label><input type="radio" name="modalidad" value="grupal">Entrega para el grupo:
+            <select class="form-inline" placeholder="Grupo" name="grupo_id" id="grupo_id">
+              <!-- De momento este select es informacional, y main.py nunca lo lee. -->
+              <option value="" disabled selected>--</option>
+            </select>
+            <label for="grupo_id" class="sr-only">Grupo</label></label>
+        </div>
       </div>
-      <p class="help-block">
-      </p>
     </div>
   </div>
   <div class="form-group" id="fg_tipo">
@@ -90,7 +108,7 @@ Cada entrega quedará registrada.
 <script>
 document.addEventListener("DOMContentLoaded", function() {
   $('#tp').on('input', validate);
-  $('#identificador').on('input', validate);
+  $('#legajo').on('input', validate);
   $('input[name=tipo]:radio', '#fg_tipo').change(validate);
   $('#file').change(function() {
     $('#filename').val(this.files[0].name);
@@ -104,10 +122,31 @@ var correctores = {{ correctores | tojson }};
 
 function validate() {
   var tp = validateTP();
-  var padronValid = validatePadron(tp);
+  var legajo = validateLegajo();
   var filesValid = validateFiles();
   var ausenciaValid = validateAusencia();
-  var valid = !!tp && padronValid && (filesValid || ausenciaValid);
+  var valid = !!tp && !!legajo && (filesValid || ausenciaValid);
+  var grupo = "--";
+
+  if (tp && legajo && correctores[legajo]) {
+    // Mostrar nombre de docente y, si aplica, número de grupo.
+    let data = correctores[legajo];
+    var corrector = null;
+
+    if (entregas[tp] === 'i' && data[0]) {
+      corrector = data[0];
+    } else if (entregas[tp] === 'g' && data[1]) {
+      grupo = data[2];
+      corrector = data[1];
+    }
+
+    if (corrector) {
+      let input = $('#legajo');
+      input.parent().find('span').html('<b>Corrector:</b> ' + corrector);
+    }
+  }
+
+  $('#grupo_id option:selected').text(grupo);
   $('#submit').prop('disabled', !valid);
 }
 
@@ -126,57 +165,27 @@ function validateTP() {
   $('#tp').parent().toggleClass('has-success', valid);
 
   if (!valid) {
-    return tp;
+    return null;
   }
 
-  if (entregas[tp] === 'i') { // individual
-    $('#fg_identificador label').html('Padrón:');
-    $('#fg_identificador .help-block').html('Número de padrón');
-    $('#identificador').attr('placeholder', 'Padrón');
-  } else { // grupal
-    $('#fg_identificador label').html('Padrón o grupo:');
-    $('#fg_identificador .help-block').html('Número de padrón o identificador del grupo (ejemplo: "G04")');
-    $('#identificador').attr('placeholder', 'Padrón o número de grupo');
-  }
+  let es_grupal = entregas[tp] === 'g';
+
+  $('[name="modalidad"]').prop('disabled', !es_grupal);
+  $('[name="modalidad"]').val([es_grupal ? 'grupal' : 'individual']);
 
   return tp;
 }
 
-function validatePadron(tp) {
-  var input = $('#identificador');
-  var padron = validateAlNum(input);
+function validateLegajo() {
+  let input = $('#legajo');
+  let legajo = validateAlNum(input);
+  let is_valid = legajo && legajo in correctores;
+  let message = is_valid ? '<b>Padrón válido</b>' : '';
 
-  if(!padron) {
-    input.parent().find('span').html('');
-    input.parent().toggleClass('has-success', false);
-    return false;
-  }
+  input.parent().find('span').html(message);
+  input.parent().toggleClass('has-success', is_valid);
 
-  var valid = false;
-  var corrector = null;
-
-  // Si la entrega es grupal, pero el identificador no es un grupo, el alumno entrega solo.
-  // Se corrige el padron para incluir 'g', y que el corrector que se muestre sea el correcto.
-  if (entregas[tp] === 'g' && !(padron.includes('G')) ){
-    padron = 'g' + padron
-  }
-
-  if (padron in correctores && correctores[padron]) {
-    corrector = correctores[padron];
-    valid = true;
-  }
-
-  input.parent().find('span').html(corrector ? '<b>Corrector:</b> ' + corrector : '');
-  input.parent().toggleClass('has-success', !!corrector);
-
-  if(!valid && padron in correctores) {
-    // Aún no tiene un corrector asignado.
-    input.parent().find('span').html('<b>Identificador válido</b>');
-    input.parent().toggleClass('has-success', true);
-    valid = true;
-  }
-
-  return valid;
+  return is_valid ? legajo : null;
 }
 
 function validateFiles() {
