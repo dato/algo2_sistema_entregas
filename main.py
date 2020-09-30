@@ -151,9 +151,11 @@ def post():
         body = request.form["body"] or ""
         tipo = request.form["tipo"]
         legajo = request.form["legajo"]
-        modalidad = request.form["modalidad"]
+        modalidad = Modalidad(request.form.get("modalidad", "i"))
     except KeyError as ex:
         raise InvalidForm(f"Formulario inválido sin campo {ex.args[0]!r}") from ex
+    except ValueError as ex:
+        raise InvalidForm(f"Formulario con campo inválido: {ex.args[0]}") from ex
 
     # Obtener alumnes que realizan la entrega.
     planilla = fetch_planilla()
@@ -165,7 +167,9 @@ def post():
     # Validar varios aspectos de la entrega.
     if tp not in cfg.entregas:
         raise InvalidForm(f"La entrega {tp!r} es inválida")
-    elif modalidad == "grupal" and cfg.entregas[tp] != Modalidad.GRUPAL:
+    elif (modalidad == Modalidad.GRUPAL and cfg.entregas[tp] != Modalidad.GRUPAL) or (
+        modalidad != Modalidad.GRUPAL and cfg.entregas[tp] == Modalidad.GRUPAL
+    ):
         raise ValueError(f"La entrega {tp} debe ser individual")
     elif tipo == "entrega" and not files:
         raise InvalidForm("No se ha adjuntado ningún archivo con extensión válida.")

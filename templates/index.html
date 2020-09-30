@@ -41,15 +41,15 @@ Cada entrega quedará registrada.
     <div class="col-xs-4">
       <div class="input-group">
         <div class="radio">
-          <label><input type="radio" name="modalidad" value="individual">Entrega individual</label>
+          <label><input type="radio" name="modalidad" value="i">Entrega individual</label>
         </div>
         <div class="radio">
-          <label><input type="radio" name="modalidad" value="grupal">Entrega para el grupo:
-            <select class="form-inline" placeholder="Grupo" name="grupo_id" id="grupo_id">
+          <label><input type="radio" name="modalidad" value="g">Entrega para el grupo:
+            <select class="form-inline" placeholder="Grupo" name="grupo" id="grupo">
               <!-- De momento este select es informacional, y main.py nunca lo lee. -->
               <option value="" disabled selected>--</option>
             </select>
-            <label for="grupo_id" class="sr-only">Grupo</label></label>
+            <label for="grupo" class="sr-only">Grupo</label></label>
         </div>
       </div>
     </div>
@@ -146,7 +146,7 @@ function validate() {
     }
   }
 
-  $('#grupo_id option:selected').text(grupo);
+  $('#grupo option:selected').text(grupo);
   $('#submit').prop('disabled', !valid);
 }
 
@@ -171,7 +171,7 @@ function validateTP() {
   let es_grupal = entregas[tp] === 'g';
 
   $('[name="modalidad"]').prop('disabled', !es_grupal);
-  $('[name="modalidad"]').val([es_grupal ? 'grupal' : 'individual']);
+  $('[name="modalidad"]').val([es_grupal ? 'g' : 'i']);
 
   return tp;
 }
