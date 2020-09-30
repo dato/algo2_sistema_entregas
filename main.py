@@ -150,21 +150,26 @@ def post():
         files = get_files()
         body = request.form["body"] or ""
         tipo = request.form["tipo"]
-        identificador = request.form["identificador"]
+        legajo = request.form["legajo"]
+        modalidad = Modalidad(request.form.get("modalidad", "i"))
     except KeyError as ex:
         raise InvalidForm(f"Formulario inválido sin campo {ex.args[0]!r}") from ex
+    except ValueError as ex:
+        raise InvalidForm(f"Formulario con campo inválido: {ex.args[0]}") from ex
 
     # Obtener alumnes que realizan la entrega.
     planilla = fetch_planilla()
     try:
-        alulist = planilla.get_alulist(identificador)
+        alumne = planilla.get_alu(legajo)
     except KeyError as ex:
-        raise InvalidForm(f"No se encuentra grupo o legajo {identificador!r}") from ex
+        raise InvalidForm(f"No se encuentra el legajo {legajo!r}") from ex
 
     # Validar varios aspectos de la entrega.
     if tp not in cfg.entregas:
         raise InvalidForm(f"La entrega {tp!r} es inválida")
-    elif len(alulist) > 1 and cfg.entregas[tp] != Modalidad.GRUPAL:
+    elif (modalidad == Modalidad.GRUPAL and cfg.entregas[tp] != Modalidad.GRUPAL) or (
+        modalidad != Modalidad.GRUPAL and cfg.entregas[tp] == Modalidad.GRUPAL
+    ):
         raise ValueError(f"La entrega {tp} debe ser individual")
     elif tipo == "entrega" and not files:
         raise InvalidForm("No se ha adjuntado ningún archivo con extensión válida.")
@@ -173,15 +178,22 @@ def post():
 
     # Encontrar a le docente correspondiente.
     if cfg.entregas[tp] == Modalidad.INDIVIDUAL:
-        docente = alulist[0].ayudante_indiv
+        docente = alumne.ayudante_indiv
     elif cfg.entregas[tp] == Modalidad.GRUPAL:
-        docente = alulist[0].ayudante_grupal
+        docente = alumne.ayudante_grupal
     else:
         docente = None
 
     if not docente and cfg.entregas[tp] != Modalidad.PARCIALITO:
-        legajos = ", ".join(x.legajo for x in alulist)
-        raise FailedDependency(f"No hay corrector para la entrega {tp} de {legajos}")
+        raise FailedDependency(f"No hay corrector para la entrega {tp} de {legajo}")
+
+    # Encontrar la lista de alumnes a quienes pertenece la entrega.
+    alulist = [alumne]
+    if modalidad == "grupal" and alumne.group:
+        try:
+            alulist = planilla.get_alulist(alumne.group)
+        except KeyError:
+            logging.warn(f"KeyError in get_alulist({alumne.group})")
 
     email = make_email(tp.upper(), alulist, docente, body)
     legajos = utils.sorted_strnum([x.legajo for x in alulist])

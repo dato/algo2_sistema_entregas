@@ -41,29 +41,49 @@ class Planilla(PullDB):
         # son siempre *listas* de objetos Alumne.
         self._alulist_by_id = self._parse_notas(sheet_dict[Hojas.Notas])
 
-        # correctores es un diccionario que mapea:
+        # correctores es un diccionario que se envía a index.html, y mapea
+        # legajos a un arreglo con:
         #
-        #  • legajo ("98765") a corrector individual
-        #  • identificador de grupo ("G07") a corrector grupal
-        #  • 'g' + legajo (p.ej. "g98765") a su corrector grupal correspondiente
+        #  • corrector individual
+        #  • corrector grupal
+        #  • identificador de grupo (normalmente uno, o cero si es un grupo de
+        #    una sola persona; podría haber más de uno si hubo rearme de grupos).
         #
-        # Esto último se usa en las validaciones Javascript en el navegador.
-        por_grupo = {alu.grupo: alu.ayudante_grupal for alu in self._alulist}
-        por_legajo = {alu.legajo: alu.ayudante_indiv for alu in self._alulist}
-        por_grupal = {f"g{alu.legajo}": alu.ayudante_grupal for alu in self._alulist}
-        self._correctores = {**por_grupo, **por_legajo, **por_grupal}
+        # Por ejemplo:
+        #
+        #  correctores = {"98765": ["Docente 1", "Docente 2", "G17"],
+        #                 "54321": ["Docente 3"],
+        #                 "12345": ["Docente 1", "Docente 3"],
+        #  }
+        self._correctores = {alu.legajo: [] for alu in self._alulist}
+
+        for alu in self._alulist:
+            for docente in (alu.ayudante_indiv, alu.ayudante_grupal):
+                if docente:
+                    self._correctores[alu.legajo].append(docente.nombre)
+                else:
+                    break
+            else:
+                if alu.grupo:
+                    # TODO: extraer de la hoja Repos los casos con más de un grupo.
+                    self._correctores[alu.legajo].append(alu.grupo)
 
     @property
-    def correctores(self) -> Dict[str, str]:
-        # Compatibilidad con la antigua planilla. (Se incluye solo el nombre del
-        # ayudante, y se filtran asignaciones nulas.)
-        return {k: v.nombre for k, v in self._correctores.items() if v is not None}
+    def correctores(self) -> Dict[str, List[str]]:
+        return self._correctores.copy()
+
+    def get_alu(self, legajo: str) -> Alumne:
+        """Lookup de alumne  por legajo.
+
+        Se lanza KeyError si no el legajo no está presente.
+        """
+        return self._alulist[legajo]
 
     def get_alulist(self, identificador: str) -> List[Alumne]:
         """Devuelve les alumnes para un identificador (grupo o legajo).
 
         Si el identificador es un legajo, devuelve una lista de un solo
-        elemento. Se lanza KeyError si noexiste el identificador.
+        elemento. Se lanza KeyError si no existe el identificador.
         """
         return self._alulist_by_id[identificador]
 
