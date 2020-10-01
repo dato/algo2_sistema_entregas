@@ -2,16 +2,14 @@
 """
 
 import base64
-import csv
 import io
 import os
 import pathlib
-import random
 import re
 import tempfile
 
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Set, Type, TypeVar
+from typing import Dict, List, Optional, Set
 
 import git  # type: ignore
 import github
@@ -26,145 +24,18 @@ from github.Repository import Repository as GithubRepo
 
 load_dotenv()
 
-T = TypeVar("T", bound="AluRepo")
-
-ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
-PLANILLA_TSV = ROOT_DIR / "conf" / "repos.tsv"
-
+# TODO: mover a corrector.py, y hacer allí la llamada a load_dotenv.
 GITHUB_TOKEN = os.environ["CORRECTOR_GH_TOKEN"]
-DEFAULT_GHUSER = os.environ["CORRECTOR_GH_USER"]
-
-# XXX Temporario 2020/1. Maneja a qué personas se les incluye
-# el enlace al repo en el mail que envía el corrector.
-REVIEWEE_INDIV = {
-    "54321",
-}
-
-# Poner aquí los padrones de integrantes de grupos, pero *solo*
-# si el grupo tiene dos miembros. Si no, ponerlos en REVIEW_INDIV.
-REVIEWEE_GRUPAL = {
-    "543421",
-}
 
 
 class AluRepo:
-    """Clase para manejar los repositorios individuales y grupales.
+    """Clase para sincronizar un repo de alumne.
     """
 
-    # TODO: separar esta clase en dos, una para obtener el nombre de los repos
-    # (primeros tres métodos), y otra para meramente (métodos sync y ensure_exists).
-
-    DEFAULT_COLUMN = "Repo"
-
-    def __init__(
-        self, repo_full: str, legajos: List[str], github_users: List[str] = None,
-    ):
-        """Constructor de la clase AluRepo.
-
-        Normalmente no se usa directamente, sino que se usa uno de:
-
-          • AluRepo.from_legajo
-          • AluRepo.from_grupo
-          • AluRepo.from_legajos
-        """
-        self.gh_repo: Optional[GithubRepo] = None
-        self.legajos = set(legajos)
+    def __init__(self, repo_full: str, github_user: str):
+        self.gh_repo: Optional[GithubRepo] = None  # TODO: Make this a @property.
         self.repo_full = repo_full
-        self.github_users = github_users or [DEFAULT_GHUSER]
-
-    @classmethod
-    def from_legajo(
-        cls: Type[T], legajo: str, /, tp_id: str = None, *, force_column: str = None
-    ) -> T:
-        """Devuelve el AluRepo correspondiente a un legajo y entrega.
-
-        Si se especifica una entrega con `tp_id`, se busca en la configuración
-        qué columna de la planilla corresponde. Si no se indica entrega, el
-        repositorio se busca en la columna DEFAULT_COLUMN, o `force_column` si
-        se especifica.
-
-        ==> Este método es el apropiado para entregas individuales, y funciona
-            también para grupos, componiendo los legajos en una sola cadena,
-            separados por caracter subrayado ("12345_123456", etc.).
-
-        Raises:
-          KeyError si no se encuentra el legajo
-          ValueError si no hay repositorio configurado
-        """
-        if tp_id is not None and force_column is not None:
-            raise ValueError("tp_id y force_column son incompatibles")
-
-        column = cls.DEFAULT_COLUMN if force_column is None else force_column
-
-        # TODO: mover esto a repos.yml
-        if tp_id in {"abb", "hash", "heap", "tp2", "tp3"} or "_" in legajo:
-            column = "Repo2"
-
-        return cls.from_legajos(legajo.split("_"), column=column)
-
-    @classmethod
-    def from_grupo(cls: Type[T], group_id: List[str] = None) -> T:
-        """Devuelve el objeto AluRepo correspondiente a un grupo.
-
-        ==> Este es el mejor método para entregas grupales, si se sabe el nombre
-            del grupo.
-
-        Raises:
-          KeyError si no se encuentra el legajo
-          ValueError si no hay repositorio configurado, o no es único
-        """
-        legajos = []
-
-        with open(PLANILLA_TSV, newline="") as fileobj:
-            for row in csv.DictReader(fileobj, dialect="excel-tab"):
-                if row["Grupo"] == group_id:
-                    legajos.append(row["Legajo"])
-
-        if not legajos:
-            raise KeyError(f"no se encontró grupo {group_id} en la planilla")
-
-        return cls.from_legajos(legajos, column="Repo2")
-
-    @classmethod
-    def from_legajos(cls: Type[T], legajos: List[str], /, *, column: str) -> T:
-        """Función genérica para obtener un repositorio.
-
-        Si no se especifica force_column, se usa DEFAULT_COLUMN. Si legajos
-        tiene más de un elemento, pero los repositorios no coinciden, se lanza
-        ValueError.
-
-        Esta función no se debería usar directamente, y debería preferirsse una
-        de las dos anteriores.
-        """
-        rows = []
-
-        with open(PLANILLA_TSV, newline="") as fileobj:
-            for row in csv.DictReader(fileobj, dialect="excel-tab"):
-                if row["Legajo"] in legajos:
-                    rows.append(row)
-
-        if not rows:
-            s = "s" if legajos[1:] else ""
-            legajos_fmt = ", ".join(legajos)
-            raise KeyError(f"no se encontró legajo{s} {legajos_fmt} en la planilla")
-
-        repo_names = set()
-        github_names = []
-
-        for row in rows:
-            if name := row[column]:
-                repo_names.add(name)
-            if ghuser := row["Github"]:
-                github_names.append(ghuser)
-
-        if not repo_names:
-            raise ValueError(f"columna {column} vacía para {legajos}")
-        elif len(repo_names) > 1:
-            raise ValueError(f"múltiples repos posibles: {repo_names}")
-        else:
-            repo_full = repo_names.pop()
-
-        return cls(repo_full, legajos, github_names)
+        self.github_user = github_user
 
     @property
     def url(self):
@@ -214,11 +85,6 @@ class AluRepo:
         # TODO: set up team access
         # TODO: configure branch protections
 
-    def has_reviewer(self):
-        # TODO: usar la columna Reviewer de la planilla?
-        reviewees = REVIEWEE_GRUPAL if len(self.legajos) > 1 else REVIEWEE_INDIV
-        return not self.legajos.isdisjoint(reviewees)
-
     def sync(self, entrega_dir: pathlib.Path, rama: str, *, target_subdir: str = None):
         """Importa una entrega a los repositorios de alumnes.
 
@@ -239,7 +105,7 @@ class AluRepo:
         gh = github.Github(GITHUB_TOKEN)
         repo = self.gh_repo or gh.get_repo(self.repo_full)
         gitref = repo.get_git_ref(f"heads/{rama}")
-        ghuser = random.choice(self.github_users)  # ¯\_(ツ)_/¯ Only entregas knows.
+        ghuser = self.github_user
         prefix_re = re.compile(re.escape(target_subdir.rstrip("/") + "/"))
 
         # Estado actual del repo.
@@ -362,8 +228,3 @@ def deleted_files(
         InputGitTreeElement(path, "100644", "blob", sha=None)  # type: ignore
         for path in deletions
     ]
-
-
-# Local Variables:
-# eval: (blacken-mode 1)
-# End:
