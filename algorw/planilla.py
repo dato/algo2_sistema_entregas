@@ -111,7 +111,7 @@ class Planilla(PullDB):
             else:
                 alu.ayudante_indiv = self._docentes.get(safeidx(row, ayudante_indiv))
                 alu.ayudante_grupal = self._docentes.get(safeidx(row, ayudante_grupal))
-                if grupo := row[nro_grupo]:
+                if grupo := safeidx(row, nro_grupo):
                     alu.grupo = grupo
                     alulist_by_id.setdefault(grupo, []).append(alu)
 
