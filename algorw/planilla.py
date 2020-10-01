@@ -29,10 +29,10 @@ class Planilla(PullDB):
         self._logger = logging.getLogger("entregas")
 
         # Lista de Alumnes.
-        self._alulist = parse_rows(sheet_dict[Hojas.Alumnes], Alumne)
+        self._alulist: List[Alumne] = parse_rows(sheet_dict[Hojas.Alumnes], Alumne)
 
         # Diccionario de docentes (indexados por nombre).
-        self._docentes = {
+        self._docentes: Dict[str, Docente] = {
             d.nombre: d for d in parse_rows(sheet_dict[Hojas.Docentes], Docente)
         }
 
@@ -77,7 +77,7 @@ class Planilla(PullDB):
 
         Se lanza KeyError si no el legajo no está presente.
         """
-        return self._alulist[legajo]
+        return self.get_alulist(legajo)[0]
 
     def get_alulist(self, identificador: str) -> List[Alumne]:
         """Devuelve les alumnes para un identificador (grupo o legajo).
