@@ -170,8 +170,6 @@ def procesar_entrega(task: CorrectorTask):
             alu_repo = AluRepo(task.alu_repo.full_name, task.github_id or GITHUB_USER)
             alu_repo.ensure_exists(skel_repo="algorw-alu/algo2_tps")
             alu_repo.sync(moss.location(), tp_id)
-        except (KeyError, ValueError):
-            pass
         except GithubException as ex:
             print(f"error al sincronizar: {ex}", file=sys.stderr)
         else:

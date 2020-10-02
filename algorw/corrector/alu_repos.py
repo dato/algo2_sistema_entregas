@@ -61,8 +61,8 @@ class AluRepo:
         owner, name = self.repo_full.split("/", 1)
         organization = gh.get_organization(owner)
 
-        # TODO: get all settings from repos.yml
-        organization.create_repo(
+        # TODO: get all settings from repos.yml (incl. skel_repo & team_name).
+        new_repo = organization.create_repo(
             name,
             private=True,
             has_wiki=False,
@@ -70,9 +70,10 @@ class AluRepo:
             has_downloads=False,
             allow_squash_merge=False,
             allow_rebase_merge=False,
+            delete_branch_on_merge=False,  # type: ignore
         )
 
-        # TODO: poner skel_repo en la configuración.
+        # Hacer push de todas las ramas del esqueleto.
         if skel_repo is not None:
             skel_repo = f"git@github.com:{skel_repo}"
             repo_full = f"git@github.com:{self.repo_full}"
@@ -82,8 +83,16 @@ class AluRepo:
                     [repo_full, "refs/remotes/origin/*:refs/heads/*"]
                 )
 
-        # TODO: set up team access
-        # TODO: configure branch protections
+        # Dar permiso a los docentes.
+        try:
+            team = organization.get_team_by_slug("algorw-20b")
+        except github.UnknownObjectException:
+            pass
+        else:
+            team.set_repo_permission(new_repo, "admin")
+
+        # TODO: configure branch protections (necesario para cuando se dé permiso para
+        # hacer push de manera directa para las entregas, desde Git).
 
     def sync(self, entrega_dir: pathlib.Path, rama: str, *, target_subdir: str = None):
         """Importa una entrega a los repositorios de alumnes.

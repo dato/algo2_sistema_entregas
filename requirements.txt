@@ -30,7 +30,7 @@ protobuf==3.12.4          # via google-api-core, googleapis-common-protos
 pyasn1-modules==0.2.8     # via google-auth, oauth2client
 pyasn1==0.4.8             # via oauth2client, pyasn1-modules, rsa
 pydantic==1.6.1           # via -r requirements.in
-pygithub==1.51            # via -r requirements.in
+pygithub==1.53            # via -r requirements.in
 pyjwt==1.7.1              # via pygithub
 python-dotenv==0.13.0     # via -r requirements.in
 pytz==2020.1              # via google-api-core
