@@ -4,6 +4,8 @@ from typing import ClassVar, List, Optional, Sequence, Type
 
 from pydantic import BaseModel, EmailStr, ValidationError
 
+from .common.models import Repo
+
 
 __all__ = [
     "Model",
@@ -40,11 +42,15 @@ class Alumne(Model):
     correo: EmailStr
     github: Optional[str]
     grupo: Optional[str]
+    repo_indiv: Optional[Repo]
     ayudante_indiv: Optional[Docente]
     ayudante_grupal: Optional[Docente]
 
     # Deben cubrir todos los campos obligatorios, en el mismo orden.
     COLUMNAS: ClassVar = ("Padrón", "Alumno", "Email", "Github")
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 def parse_rows(rows: List[List[str]], model: Type[Model]) -> List[Model]:

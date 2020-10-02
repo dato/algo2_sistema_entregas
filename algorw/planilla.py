@@ -2,8 +2,9 @@ import logging
 
 from enum import Enum
 from itertools import islice
-from typing import Dict, List
+from typing import Dict, List, Optional
 
+from .common.models import Repo
 from .models import Alumne, Docente, parse_rows, safeidx
 from .sheets import PullDB
 
@@ -15,6 +16,7 @@ __all__ = [
 
 class Hojas(str, Enum):
     Notas = "Notas"
+    Repos = "Repos"
     Alumnes = "DatosAlumnos"
     Docentes = "DatosDocentes"
 
@@ -40,6 +42,10 @@ class Planilla(PullDB):
         # los legajos, y todos los identificadores de grupo. Los valores
         # son siempre *listas* de objetos Alumne.
         self._alulist_by_id = self._parse_notas(sheet_dict[Hojas.Notas])
+
+        # _repos_by_group es un diccionario que incluye como claves los identificadores,
+        # teniendo como valor su repositorio asociado.
+        self._repos_by_group = self._parse_repos(sheet_dict[Hojas.Repos])
 
         # correctores es un diccionario que se envía a index.html, y mapea
         # legajos a un arreglo con:
@@ -87,6 +93,11 @@ class Planilla(PullDB):
         """
         return self._alulist_by_id[identificador]
 
+    def repo_grupal(self, id_grupo: str) -> Optional[Repo]:
+        """Devuelve el Repositorio de un grupo, si lo hay.
+        """
+        return self._repos_by_group.get(id_grupo)
+
     def _parse_notas(self, rows) -> Dict[str, List[Alumne]]:
         """Construye el mapeo de identificadores a alumnes.
 
@@ -116,3 +127,40 @@ class Planilla(PullDB):
                     alulist_by_id.setdefault(grupo, []).append(alu)
 
         return alulist_by_id
+
+    def _parse_repos(self, rows) -> Dict[str, Repo]:
+        """Completa la información sobre repostorios individuales y grupales.
+
+        Este método parsea la hoja Repos y:
+
+          - actualiza todos los campos "repo_indiv" en self._alulist
+          - devuelve un diccionario que mapea legajos y grupos a repositorios.
+        """
+        headers = rows[0]
+        repo_idx = headers.index("Repo")
+        repo2_idx = headers.index("Repo2")
+        grupo_idx = headers.index("Grupo")
+        legajo_idx = headers.index("Legajo")
+        repos_by_id = {}
+
+        for row in islice(rows, 1, None):
+            if not (legajo := safeidx(row, legajo_idx)):
+                continue
+
+            try:
+                alu = self.get_alu(str(legajo))
+            except KeyError:
+                self._logger.warn(f"{legajo} aparece en Repos pero no en Notas")
+                continue
+
+            repo_indiv = safeidx(row, repo_idx)
+            repo_grupal = safeidx(row, repo2_idx)
+            num_grupo = safeidx(row, grupo_idx)
+
+            if repo_indiv:
+                alu.repo_indiv = Repo(repo_indiv)
+
+            if repo_grupal and num_grupo:
+                repos_by_id[num_grupo] = Repo(repo_grupal)
+
+        return repos_by_id

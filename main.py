@@ -188,13 +188,17 @@ def post():
     if not docente and cfg.entregas[tp] != Modalidad.PARCIALITO:
         raise FailedDependency(f"No hay corrector para la entrega {tp} de {legajo}")
 
-    # Encontrar la lista de alumnes a quienes pertenece la entrega.
+    # Encontrar la lista de alumnes a quienes pertenece la entrega, y su repo asociado.
     alulist = [alumne]
-    if modalidad == "grupal" and alumne.group:
+    alu_repo = None
+    if modalidad == Modalidad.GRUPAL and alumne.grupo:
         try:
-            alulist = planilla.get_alulist(alumne.group)
+            alulist = planilla.get_alulist(alumne.grupo)
+            alu_repo = planilla.repo_grupal(alumne.grupo)
         except KeyError:
             logging.warn(f"KeyError in get_alulist({alumne.group})")
+    else:
+        alu_repo = alumne.repo_indiv
 
     email = make_email(tp.upper(), alulist, docente, body)
     legajos = utils.sorted_strnum([x.legajo for x in alulist])
@@ -229,6 +233,8 @@ def post():
         tp_id=tp_id,
         legajos=legajos,
         zipfile=entrega.content,
+        alu_repo=alu_repo,
+        github_id=alumne.github,
         orig_headers=dict(email.items()),
         repo_relpath=relpath_base / "_".join(legajos),
     )
