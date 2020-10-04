@@ -15,7 +15,7 @@ import requests
 
 from flask import Flask, render_template, request
 from flask_caching import Cache  # type: ignore
-from werkzeug.exceptions import FailedDependency, HTTPException
+from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 
 from algorw import utils
@@ -178,15 +178,16 @@ def post():
         raise InvalidForm("No se ha adjuntado una justificación para la ausencia.")
 
     # Encontrar a le docente correspondiente.
+    docente = None
+    warning = None
+
     if cfg.entregas[tp] == Modalidad.INDIVIDUAL:
         docente = alumne.ayudante_indiv
     elif cfg.entregas[tp] == Modalidad.GRUPAL:
         docente = alumne.ayudante_grupal
-    else:
-        docente = None
 
     if not docente and cfg.entregas[tp] != Modalidad.PARCIALITO:
-        raise FailedDependency(f"No hay corrector para la entrega {tp} de {legajo}")
+        warning = "aún no se asignó docente para corregir esta entrega"
 
     # Encontrar la lista de alumnes a quienes pertenece la entrega, y su repo asociado.
     alulist = [alumne]
@@ -249,6 +250,7 @@ def post():
     return render_template(
         "result.html",
         tp=tp,
+        warning=warning,
         email="\n".join(f"{k}: {v}" for k, v in email.items()) if cfg.test else None,
     )
 
