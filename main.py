@@ -20,8 +20,8 @@ from werkzeug.utils import secure_filename
 
 from algorw import utils
 from algorw.app.queue import task_queue
-from algorw.app.tasks import corregir_entrega  # TODO: importar from corrector.
 from algorw.common.tasks import CorrectorTask
+from algorw.corrector import corregir_entrega
 from algorw.models import Alumne, Docente
 from config import Modalidad, Settings, load_config
 from planilla import fetch_planilla, timer_planilla
