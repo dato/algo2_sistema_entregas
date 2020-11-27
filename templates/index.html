@@ -168,10 +168,17 @@ function validateTP() {
     return null;
   }
 
+  // Seleccionar automáticamente modalidad individual o grupal pero, para
+  // trabajos grupales, solo si no había ya una selección (para permitir
+  // entregas individuales de TPs grupales).
   let es_grupal = entregas[tp] === 'g';
+  let esta_enabled = $('input:radio[name="modalidad"]').is(":enabled");
+  let hay_seleccion = $('input:radio[name="modalidad"]').is(":checked");
 
-  $('[name="modalidad"]').prop('disabled', !es_grupal);
-  $('[name="modalidad"]').val([es_grupal ? 'g' : 'i']);
+  if (!es_grupal || !hay_seleccion || !esta_enabled) {
+    $('input:radio[name="modalidad"]').prop('disabled', !es_grupal);
+    $('input:radio[name="modalidad"]').val([es_grupal ? 'g' : 'i']);
+  }
 
   return tp;
 }

@@ -168,9 +168,7 @@ def post():
     # Validar varios aspectos de la entrega.
     if tp not in cfg.entregas:
         raise InvalidForm(f"La entrega {tp!r} es inválida")
-    elif (modalidad == Modalidad.GRUPAL and cfg.entregas[tp] != Modalidad.GRUPAL) or (
-        modalidad != Modalidad.GRUPAL and cfg.entregas[tp] == Modalidad.GRUPAL
-    ):
+    elif modalidad == Modalidad.GRUPAL and cfg.entregas[tp] != Modalidad.GRUPAL:
         raise ValueError(f"La entrega {tp} debe ser individual")
     elif tipo == "entrega" and not files:
         raise InvalidForm("No se ha adjuntado ningún archivo con extensión válida.")
