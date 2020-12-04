@@ -65,6 +65,7 @@ GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
 
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
+TODO_OK_OR_ERROR = re.compile(r"^(Todo OK|ERROR)$", re.M)
 
 
 # Archivos que no aceptamos en las entregas.
@@ -166,14 +167,29 @@ def procesar_entrega(task: CorrectorTask):
     if retcode != 0:
         raise ErrorInterno(output)
 
+    # Sincronizar la entrega con los repositorios individuales.
     if task.repo_sync is not None:
+        checkrun = None
         dest_repo = task.repo_sync.alu_repo
         auth_token = task.repo_sync.auth_token.get_secret_value()
+
+        if m := TODO_OK_OR_ERROR.search(output):
+            result = m.group(1)
+            checkrun_output = TODO_OK_OR_ERROR.sub("", output).lstrip()
+            checkrun = {
+                "name": f"Pruebas {task.tp_id}",
+                "conclusion": "success" if result == "Todo OK" else "failure",
+                "output": {
+                    "title": result,
+                    "text": f"```\n{checkrun_output}\n```",
+                    "summary": "Pruebas del corrector automático",
+                },
+            }
+
         try:
-            # Sincronizar la entrega con los repositorios individuales.
             alu_repo = AluRepo(dest_repo.full_name, auth_token=auth_token)
             alu_repo.ensure_exists(skel_repo="algorw-alu/algo2_tps")
-            alu_repo.sync(moss.location(), tp_id, task.repo_sync.github_id)
+            alu_repo.sync(moss.location(), tp_id, task.repo_sync.github_id, checkrun)
         except GithubException as ex:
             print(f"error al sincronizar: {ex}", file=sys.stderr)
         else:

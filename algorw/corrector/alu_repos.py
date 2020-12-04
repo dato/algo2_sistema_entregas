@@ -91,6 +91,7 @@ class AluRepo:
         entrega_dir: pathlib.Path,
         rama: str,
         ghuser: str,
+        checkrun: Optional[Dict] = None,
         *,
         target_subdir: str = None,
     ):
@@ -103,6 +104,8 @@ class AluRepo:
           target_subdir: directorio que se debe actuaizar dentro el repositorio.
               Si no se especifica, se usa el nombre de la rama (usar la cadena
               vacía para actualizar el toplevel).
+          checkrun: resultado de la corrección en formato CheckRun de Github, a
+              ser asociado con el último commit.
 
         Raises:
           github.UnknownObjectException si el repositorio no existe.
@@ -163,6 +166,11 @@ class AluRepo:
             cur_tree = repo.get_git_tree(cur_tree.sha, recursive=True)
 
         gitref.edit(cur_commit.sha)
+
+        # Crear checkrun si se recibió la salida del corrector.
+        if checkrun is not None:
+            nombre = checkrun.pop("name", rama)
+            repo.create_check_run(nombre, cur_commit.sha, **checkrun)
 
 
 def tree_to_github(
@@ -231,8 +239,4 @@ def deleted_files(
     preserve_files = filter_tree(preserve_from) if preserve_from else set()
 
     deletions = cur_files - new_files - preserve_files
-    # mypy complains here because of https://github.com/PyGithub/PyGithub/issues/1707
-    return [
-        InputGitTreeElement(path, "100644", "blob", sha=None)  # type: ignore
-        for path in deletions
-    ]
+    return [InputGitTreeElement(path, "100644", "blob", sha=None) for path in deletions]
