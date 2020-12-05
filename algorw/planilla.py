@@ -30,7 +30,7 @@ class Planilla(PullDB):
     def parse_sheets(self, sheet_dict):
         self._logger = logging.getLogger("entregas")
 
-        # Lista de Alumnes.
+        # Lista de Alumnes (filtrada/intersectada más tarde con Hojas.Notas).
         self._alulist: List[Alumne] = parse_rows(sheet_dict[Hojas.Alumnes], Alumne)
 
         # Diccionario de docentes (indexados por nombre).
@@ -101,11 +101,14 @@ class Planilla(PullDB):
     def _parse_notas(self, rows) -> Dict[str, List[Alumne]]:
         """Construye el mapeo de identificadores a alumnes.
 
-        Este método combina la planilla Notas con la lista de
-        Alumnes, self._alulist, para construir (y devolver) el
-        diccionario self._alulist_by_id, explicado arriba.
+        Este método combina la planilla Notas con la lista de Alumnes para construir
+        (y devolver) el diccionario self._alulist_by_id, explicado arriba. La lista
+        original self._alulist queda filtrada a les alumnes que aparecieron en Notas.
         """
-        alulist_by_id = {x.legajo: [x] for x in self._alulist}
+        aludict = {x.legajo: x for x in self._alulist}
+        legajos = set()
+        alulist_by_id = {}
+
         headers = rows[0]
         padron = headers.index("Padrón")
         nro_grupo = headers.index("Nro Grupo")
@@ -116,15 +119,20 @@ class Planilla(PullDB):
             if padron >= len(row) or not (legajo := row[padron]):
                 continue
             try:
-                (alu,) = alulist_by_id[str(legajo)]
+                alu = aludict[str(legajo)]
             except KeyError:
                 self._logger.warn(f"{legajo} aparece en Notas pero no en DatosAlumnos")
             else:
+                legajos.add(alu.legajo)
+                alulist_by_id[alu.legajo] = [alu]
                 alu.ayudante_indiv = self._docentes.get(safeidx(row, ayudante_indiv))
                 alu.ayudante_grupal = self._docentes.get(safeidx(row, ayudante_grupal))
                 if grupo := safeidx(row, nro_grupo):
                     alu.grupo = grupo
                     alulist_by_id.setdefault(grupo, []).append(alu)
+
+        # Restringir la lista de alumnes a quienes aparecieron en Notas.
+        self._alulist = [x for x in self._alulist if x.legajo in legajos]
 
         return alulist_by_id
 
