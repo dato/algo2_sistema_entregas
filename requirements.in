@@ -1,6 +1,7 @@
 Flask==1.1.*
 Flask-Caching==1.*
 cachetools==4.*
+cryptography==3.*
 email-validator==1.*  # Para pydantic.NameEmail
 GitPython==3.*
 google-api-python-client==1.*

@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     recaptcha_site_id: str
     recaptcha_secret: SecretStr
 
+    github_app_id: int
+    github_app_keyfile: str
+
+    # TODO: borrar este token cuando todo se migre a Github App.
     github_token: SecretStr
 
 

@@ -3,5 +3,6 @@
 /venv
 /service_account.json
 
+*.pem
 *.py[cod]
 __pycache__/
