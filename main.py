@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 
 from algorw import utils
 from algorw.app.queue import task_queue
-from algorw.common.tasks import CorrectorTask
+from algorw.common.tasks import CorrectorTask, RepoSync
 from algorw.corrector import corregir_entrega
 from algorw.models import Alumne, Docente
 from config import Modalidad, Settings, load_config
@@ -228,12 +228,19 @@ def post():
         # Ruta específica para parcialitos: parcialitos/2020_1/parcialito1_r2/54321
         relpath_base = pathlib.PurePath("parcialitos") / cfg.cuatri / tp_id
 
+    if alu_repo is not None:
+        repo_sync = RepoSync(
+            alu_repo=alu_repo,
+            auth_token=cfg.github_token,
+            github_id=alumne.github or "wachenbot",
+        )
+    else:
+        repo_sync = None
     task = CorrectorTask(
         tp_id=tp_id,
         legajos=legajos,
         zipfile=entrega.content,
-        alu_repo=alu_repo,
-        github_id=alumne.github,
+        repo_sync=repo_sync,
         orig_headers=dict(email.items()),
         repo_relpath=relpath_base / "_".join(legajos),
     )

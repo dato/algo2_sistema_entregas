@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     recaptcha_site_id: str
     recaptcha_secret: SecretStr
 
+    github_token: SecretStr
+
 
 @lru_cache
 def load_config():

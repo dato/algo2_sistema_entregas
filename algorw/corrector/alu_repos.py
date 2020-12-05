@@ -3,7 +3,6 @@
 
 import base64
 import io
-import os
 import pathlib
 import re
 import tempfile
@@ -14,7 +13,6 @@ from typing import Dict, List, Optional, Set
 import git  # type: ignore
 import github
 
-from dotenv import load_dotenv
 from git.objects.fun import traverse_tree_recursive  # type: ignore
 from git.util import stream_copy  # type: ignore
 from github import InputGitTreeElement
@@ -22,20 +20,14 @@ from github.GitTree import GitTree as GithubTree
 from github.Repository import Repository as GithubRepo
 
 
-load_dotenv()
-
-# TODO: mover a corrector.py, y hacer allí la llamada a load_dotenv.
-GITHUB_TOKEN = os.environ["CORRECTOR_GH_TOKEN"]
-
-
 class AluRepo:
     """Clase para sincronizar un repo de alumne.
     """
 
-    def __init__(self, repo_full: str, github_user: str):
+    def __init__(self, repo_full: str, *, auth_token: str):
         self.gh_repo: Optional[GithubRepo] = None  # TODO: Make this a @property.
         self.repo_full = repo_full
-        self.github_user = github_user
+        self.auth_token = auth_token
 
     @property
     def url(self):
@@ -50,7 +42,7 @@ class AluRepo:
         Raises:
           github.GithubException si no se pudo crear el repositorio.
         """
-        gh = github.Github(GITHUB_TOKEN)
+        gh = github.Github(self.auth_token)
         try:
             self.gh_repo = gh.get_repo(self.repo_full)
         except github.UnknownObjectException:
@@ -94,12 +86,20 @@ class AluRepo:
         # TODO: configure branch protections (necesario para cuando se dé permiso para
         # hacer push de manera directa para las entregas, desde Git).
 
-    def sync(self, entrega_dir: pathlib.Path, rama: str, *, target_subdir: str = None):
+    def sync(
+        self,
+        entrega_dir: pathlib.Path,
+        rama: str,
+        ghuser: str,
+        *,
+        target_subdir: str = None,
+    ):
         """Importa una entrega a los repositorios de alumnes.
 
         Args:
           entrega_dir: ruta en repo externo con los archivos actualizados.
           rama: rama en la que actualizar la entrega.
+          ghuser: nombre de cuenta de Github con que crear los commits.
           target_subdir: directorio que se debe actuaizar dentro el repositorio.
               Si no se especifica, se usa el nombre de la rama (usar la cadena
               vacía para actualizar el toplevel).
@@ -111,10 +111,9 @@ class AluRepo:
         if target_subdir is None:
             target_subdir = rama
 
-        gh = github.Github(GITHUB_TOKEN)
+        gh = github.Github(self.auth_token)
         repo = self.gh_repo or gh.get_repo(self.repo_full)
         gitref = repo.get_git_ref(f"heads/{rama}")
-        ghuser = self.github_user
         prefix_re = re.compile(re.escape(target_subdir.rstrip("/") + "/"))
 
         # Estado actual del repo.

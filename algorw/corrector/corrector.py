@@ -44,6 +44,7 @@ import zipfile
 
 from typing import Dict
 
+from dotenv import load_dotenv
 from github import GithubException
 
 from config import Settings, load_config
@@ -54,12 +55,13 @@ from . import ai_corrector
 from .alu_repos import AluRepo
 
 
+load_dotenv()
+
 ROOT_DIR = pathlib.Path(os.environ["CORRECTOR_ROOT"])
 SKEL_DIR = ROOT_DIR / os.environ["CORRECTOR_SKEL"]
 DATA_DIR = ROOT_DIR / os.environ["CORRECTOR_TPS"]
 WORKER_BIN = ROOT_DIR / os.environ["CORRECTOR_WORKER"]
 GITHUB_URL = "https://github.com/" + os.environ["CORRECTOR_GH_REPO"]
-GITHUB_USER = os.environ["CORRECTOR_GH_USER"]
 
 AUSENCIA_REGEX = re.compile(r" \(ausencia\)$")
 TODO_OK_REGEX = re.compile(r"^Todo OK$", re.M)
@@ -164,12 +166,14 @@ def procesar_entrega(task: CorrectorTask):
     if retcode != 0:
         raise ErrorInterno(output)
 
-    if task.alu_repo is not None:
+    if task.repo_sync is not None:
+        dest_repo = task.repo_sync.alu_repo
+        auth_token = task.repo_sync.auth_token.get_secret_value()
         try:
             # Sincronizar la entrega con los repositorios individuales.
-            alu_repo = AluRepo(task.alu_repo.full_name, task.github_id or GITHUB_USER)
+            alu_repo = AluRepo(dest_repo.full_name, auth_token=auth_token)
             alu_repo.ensure_exists(skel_repo="algorw-alu/algo2_tps")
-            alu_repo.sync(moss.location(), tp_id)
+            alu_repo.sync(moss.location(), tp_id, task.repo_sync.github_id)
         except GithubException as ex:
             print(f"error al sincronizar: {ex}", file=sys.stderr)
         else:
