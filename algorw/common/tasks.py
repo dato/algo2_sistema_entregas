@@ -1,9 +1,26 @@
 from pathlib import PurePath
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 from .models import Repo
+
+
+class RepoSync(BaseModel):
+    """Clase que describe la sincronización de una entrega.
+    """
+
+    # El repositorio donde se sincroniza la entrega.
+    alu_repo: Repo
+
+    # El nombre de cuenta de Github que realizó la entrega.
+    github_id: str
+
+    # El token para autenticar la instalación de Github.
+    auth_token: SecretStr
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class CorrectorTask(BaseModel):
@@ -31,12 +48,8 @@ class CorrectorTask(BaseModel):
     # el sistema de entregas guardará los archivos, y el corrector los leerá.
     repo_relpath: PurePath
 
-    # "group_id" está presente para entregas grupales con ID de grupo. "alu_repo",
-    # si está presente, es el repositorio a donde se debería sincronizar la entrega
-    # (usando "github_id" para la autoría de los commits, o "wachenbot" si no).
-    group_id: Optional[str] = None
-    alu_repo: Optional[Repo] = None
-    github_id: Optional[str] = None
+    # Sincronización a repositorios de alumnes.
+    repo_sync: Optional[RepoSync] = None
 
     class Config:
         arbitrary_types_allowed = True

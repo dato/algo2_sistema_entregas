@@ -4,6 +4,8 @@ sender: Entregas Algoritmos 2 <tps.7541rw@gmail.com>
 
 cuatri: "2020_2"
 planilla_ttl: 1:00:00
+github_app_id: 68967
+github_app_keyfile: algorw-corr.pem
 spreadsheet_id: 1ucJhBs286K-1kv6xmIjdLg4OPR91uXnBk5R4GVS1hh8
 service_account_jsonfile: service_account.json
 

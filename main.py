@@ -11,6 +11,7 @@ from email.mime.text import MIMEText
 from email.utils import formatdate, make_msgid
 from typing import List, Optional
 
+import github
 import requests
 
 from flask import Flask, render_template, request
@@ -20,7 +21,7 @@ from werkzeug.utils import secure_filename
 
 from algorw import utils
 from algorw.app.queue import task_queue
-from algorw.common.tasks import CorrectorTask
+from algorw.common.tasks import CorrectorTask, RepoSync
 from algorw.corrector import corregir_entrega
 from algorw.models import Alumne, Docente
 from config import Modalidad, Settings, load_config
@@ -32,6 +33,9 @@ app.logger.setLevel(logging.INFO)
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024  # 4 MiB
 
 cfg: Settings = load_config()
+gh: github.GithubIntegration = github.GithubIntegration(
+    cfg.github_app_id, open(cfg.github_app_keyfile).read()
+)
 cache: Cache = Cache(config={"CACHE_TYPE": "simple"})
 
 cache.init_app(app)
@@ -228,12 +232,29 @@ def post():
         # Ruta específica para parcialitos: parcialitos/2020_1/parcialito1_r2/54321
         relpath_base = pathlib.PurePath("parcialitos") / cfg.cuatri / tp_id
 
+    if alu_repo is not None:
+        auth_token = cfg.github_token
+        installation = gh.get_installation(alu_repo.owner, alu_repo.name)
+        try:
+            auth = gh.get_access_token(installation.id)
+            auth_token = auth.token
+        except github.UnknownObjectException:
+            # Probablemente el repositorio no existe todavía. Usamos el antiguo token
+            # hasta que resolvamos
+            # https://github.com/PyGithub/PyGithub/issues/1730#issuecomment-739111283.
+            pass
+        repo_sync = RepoSync(
+            alu_repo=alu_repo,
+            auth_token=auth_token,
+            github_id=alumne.github or "wachenbot",
+        )
+    else:
+        repo_sync = None
     task = CorrectorTask(
         tp_id=tp_id,
         legajos=legajos,
         zipfile=entrega.content,
-        alu_repo=alu_repo,
-        github_id=alumne.github,
+        repo_sync=repo_sync,
         orig_headers=dict(email.items()),
         repo_relpath=relpath_base / "_".join(legajos),
     )
