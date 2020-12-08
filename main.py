@@ -212,8 +212,10 @@ def post():
         with zipfile.ZipFile(rawzip, "w") as zf:
             zf.writestr("ausencia.txt", body + "\n")
         entrega = File(rawzip.getvalue(), f"{tp}_ausencia.zip")
+        commit_desc = ""
     else:
         entrega = zipfile_for_entrega(files)
+        commit_desc = body.strip()
 
     # Incluir el único archivo ZIP.
     part = MIMEBase("application", "zip")
@@ -254,6 +256,7 @@ def post():
         tp_id=tp_id,
         legajos=legajos,
         zipfile=entrega.content,
+        commit_desc=commit_desc,
         repo_sync=repo_sync,
         orig_headers=dict(email.items()),
         repo_relpath=relpath_base / "_".join(legajos),

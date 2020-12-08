@@ -20,6 +20,10 @@ from github.GitTree import GitTree as GithubTree
 from github.Repository import Repository as GithubRepo
 
 
+# Se saca el emoji de la sincronización porque ya hay checkruns que indican el resultado
+EMOJI_REGEX = re.compile("^:(heavy_check_mark|x): ")
+
+
 class AluRepo:
     """Clase para sincronizar un repo de alumne.
     """
@@ -159,7 +163,7 @@ class AluRepo:
             )
             cur_tree = repo.create_git_tree(tree_elements, cur_tree)
             cur_commit = repo.create_git_commit(
-                commit.message, cur_tree, [cur_commit], author_info
+                EMOJI_REGEX.sub("", commit.message), cur_tree, [cur_commit], author_info
             )
             # Se necesita obtener el árbol de manera recursiva para tener
             # los contenidos del subdirectorio de la entrega.

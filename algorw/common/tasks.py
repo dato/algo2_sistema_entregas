@@ -48,6 +48,9 @@ class CorrectorTask(BaseModel):
     # el sistema de entregas guardará los archivos, y el corrector los leerá.
     repo_relpath: PurePath
 
+    # Descripción de los cambios (para el commit en el repositorio de entregas).
+    commit_desc: str
+
     # Sincronización a repositorios de alumnes.
     repo_sync: Optional[RepoSync] = None
 

@@ -40,6 +40,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import textwrap
 import zipfile
 
 from typing import Dict
@@ -112,7 +113,9 @@ def procesar_entrega(task: CorrectorTask):
     zip_obj = zipfile.ZipFile(io.BytesIO(task.zipfile))
     skel_dir = SKEL_DIR / tp_id
     moss = Moss(DATA_DIR / task.repo_relpath)
-    commit_message = f"New {tp_id} upload from {padron}"
+    # TODO: componer el mensaje entero desde main.py
+    commit_message = f"New {tp_id} upload from {padron}\n\n"
+    commit_message += textwrap.fill(task.commit_desc, 72)
 
     if AUSENCIA_REGEX.search(subj):
         # No es una entrega real, por tanto no se envía al worker.
