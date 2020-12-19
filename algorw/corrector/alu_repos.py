@@ -5,6 +5,7 @@ import base64
 import io
 import pathlib
 import re
+import sys
 import tempfile
 
 from datetime import datetime, timezone
@@ -172,9 +173,24 @@ class AluRepo:
         gitref.edit(cur_commit.sha)
 
         # Crear checkrun si se recibió la salida del corrector.
+        # FIXME: esto falla si el auth_token que se nos pasó pertenece a wachenbot
+        # (cuenta común) y no a algorw-corr (Github App), porque la API de Checks
+        # solo está disponible para apps.
+        # TODO: asegurarnos que siempre se nos pasa un auth_token de algorw-corr,
+        # o que somos capaces de crearlo acá. (Ver también algo2_sistema_entregas#67).
         if checkrun is not None:
             nombre = checkrun.pop("name", rama)
-            repo.create_check_run(nombre, cur_commit.sha, **checkrun)
+            try:
+                repo.create_check_run(nombre, cur_commit.sha, **checkrun)
+            except github.BadCredentialsException as ex:
+                print(f"Bad credentials al crear el check-run ({ex})", file=sys.stderr)
+            except github.GithubException as ex:
+                # BadCredentialsException no funciona por el momento:
+                # https://github.com/PyGithub/PyGithub/issues/1794
+                if ex.status == 403:
+                    print(f"Error al crear el check-run ({ex})", file=sys.stderr)
+                else:
+                    raise ex from None
 
 
 def tree_to_github(
