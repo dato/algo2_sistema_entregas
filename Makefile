@@ -14,8 +14,8 @@ sync: requirements.txt requirements.dev.txt
 	@env CUSTOM_COMPILE_COMMAND="make $@" venv/bin/pip-compile $<
 
 venv:
-	[ -d venv ] || {      \
-	    virtualenv venv;  \
+	[ -d venv ] || {            \
+	    virtualenv -p 3.8 venv; \
 	    venv/bin/pip install --upgrade pip;       \
 	    venv/bin/python -m pip install pip-tools; \
 	}
